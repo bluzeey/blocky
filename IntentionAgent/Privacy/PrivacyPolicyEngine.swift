@@ -135,7 +135,7 @@ struct PrivacyPolicyEngine {
         if title.contains("github") || title.contains("stackoverflow") || title.contains("documentation") {
             return .research
         }
-        if title.hasSuffix(" / x") || title.contains(" / x:") || title.contains("on x:") || title.contains("twitter") || title.contains("instagram") || title.contains("reddit") || title.contains("tiktok") || title.contains("facebook") || title.contains("linkedin") {
+        if title.hasSuffix(" / x") || title.contains(" / x:") || title.contains("on x:") || title.contains("twitter") || title.contains("instagram") || title.contains("reddit") || title.contains("tiktok") || title.contains("facebook") || title.contains("linkedin") || title.contains(": r/") || title.contains("/r/") {
             return .socialMedia
         }
         if title.contains("youtube") || title.contains("youtu.be") || title.contains("netflix") || title.contains("twitch") {
@@ -219,6 +219,6 @@ struct PrivacyPolicyEngine {
     private func isSocial(title: String, appName: String) -> Bool {
         ["instagram", "reddit", "x.com", "twitter", "facebook", "linkedin", "tiktok", "mastodon", "threads"].contains { keyword in
             title.contains(keyword) || appName.contains(keyword)
-        } || title.hasSuffix(" / x") || title.contains(" / x:") || title.contains("on x:")
+        } || title.hasSuffix(" / x") || title.contains(" / x:") || title.contains("on x:") || title.contains(": r/") || title.contains("/r/")
     }
 }

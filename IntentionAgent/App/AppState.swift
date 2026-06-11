@@ -38,6 +38,7 @@ final class AppState: ObservableObject {
     private var lastAIAlignmentCheckDate: Date?
     private var lastPeriodicNudgeDate: Date?
     private var lifecycleCancellables = Set<AnyCancellable>()
+    private var aiAlignmentOverrides: [String: (alignment: Alignment, timestamp: Date)] = [:]
     private let intentionPanelController = IntentionPanelController()
     private let nudgePanelController = NudgePanelController()
 
@@ -122,6 +123,7 @@ final class AppState: ObservableObject {
         latestNudgeMessage = "Session started"
         lastAIReviewDate = nil
         recentEvents.removeAll()
+        aiAlignmentOverrides.removeAll()
         hideIntentionModal()
         Logger.log("Session", "Started session id=\(session.id.uuidString) title=\(session.title)")
     }
@@ -289,8 +291,11 @@ final class AppState: ObservableObject {
             if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
                 Logger.log("Tracking", "Drift detected but nudge shown recently, skipping popup")
             } else {
-                Logger.log("Tracking", "Drift detected, showing nudge popup")
-                showNudgePopup(sessionTitle: activeSession.title, message: "You seem to have drifted from your intention. Are you on track?")
+                await validateDriftBeforeNudge(
+                    session: activeSession,
+                    metadata: metadata,
+                    category: privacyDecision.category
+                )
             }
         }
 
@@ -311,6 +316,57 @@ final class AppState: ObservableObject {
 
         if sessionManager.isExpired(activeSession) {
             endSession()
+        }
+    }
+
+    private func validateDriftBeforeNudge(
+        session: IntentionSession,
+        metadata: WindowMetadata,
+        category: ActivityCategory
+    ) async {
+        let cacheKey = "\(session.title)-\(category.rawValue)"
+
+        if let cached = aiAlignmentOverrides[cacheKey], Date().timeIntervalSince(cached.timestamp) < 300 {
+            currentAlignment = cached.alignment
+            Logger.log("Tracking", "Keyword drift overridden by cached AI result: alignment=\(cached.alignment.rawValue)")
+            if cached.alignment == .drift || cached.alignment == .sensitive {
+                showNudgePopup(sessionTitle: session.title, message: "You seem to have drifted from your intention. Are you on track?")
+            }
+            return
+        }
+
+        if !settings.hasAIConfiguration {
+            Logger.log("Tracking", "Drift detected, no AI configured, showing nudge popup")
+            showNudgePopup(sessionTitle: session.title, message: "You seem to have drifted from your intention. Are you on track?")
+            return
+        }
+
+        Logger.log("Tracking", "Keyword drift detected, validating with AI before showing nudge")
+
+        let recentApps = recentEvents.suffix(20).map { (app: $0.metadata.activeAppName, title: $0.metadata.windowTitle ?? "Unknown") }
+
+        do {
+            let response = try await aiClient.checkAlignment(
+                intention: session.title,
+                recentApps: recentApps,
+                settings: settings
+            )
+
+            lastAIAlignmentCheckDate = Date()
+            currentAlignment = response.alignment
+            aiStatusMessage = "Last check: \(response.alignment.rawValue)"
+            latestNudgeMessage = response.message
+            aiAlignmentOverrides[cacheKey] = (response.alignment, Date())
+
+            if response.alignment == .drift || response.alignment == .sensitive {
+                Logger.log("Tracking", "AI confirmed drift, showing nudge popup")
+                showNudgePopup(sessionTitle: session.title, message: response.message)
+            } else {
+                Logger.log("Tracking", "AI overrode keyword drift: alignment=\(response.alignment.rawValue), nudge suppressed")
+            }
+        } catch {
+            Logger.log("Tracking", "AI validation failed: \(error.localizedDescription), falling back to keyword drift")
+            showNudgePopup(sessionTitle: session.title, message: "You seem to have drifted from your intention. Are you on track?")
         }
     }
 
