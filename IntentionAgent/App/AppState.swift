@@ -37,7 +37,6 @@ final class AppState: ObservableObject {
     private var lifecycleCancellables = Set<AnyCancellable>()
 
     init() {
-        Logger.bootstrap()
         let settingsStore = AppSettingsStore()
         let captureLibraryStore = CaptureLibraryStore()
         let notificationManager = NotificationManager()
@@ -50,6 +49,7 @@ final class AppState: ObservableObject {
         self.captureCoordinator = CaptureCoordinator()
         self.notificationManager = notificationManager
         self.nudgeService = NudgeService(notificationManager: notificationManager)
+        notificationManager.setupDelegate()
         observeApplicationLifecycle()
         Logger.log("AppState", "Initialized AppState")
         Task { [weak self] in
@@ -133,6 +133,7 @@ final class AppState: ObservableObject {
     func requestAccessibilityPermission() {
         _ = permissionManager.requestAccessibilityPermission()
         Task { [weak self] in
+            _ = await self?.permissionManager.pollAccessibility()
             await self?.refreshPermissions()
         }
     }
@@ -140,6 +141,7 @@ final class AppState: ObservableObject {
     func requestScreenRecordingPermission() {
         _ = permissionManager.requestScreenRecordingPermission()
         Task { [weak self] in
+            _ = await self?.permissionManager.pollScreenRecording()
             await self?.refreshPermissions()
         }
     }

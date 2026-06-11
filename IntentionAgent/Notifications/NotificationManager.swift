@@ -2,7 +2,20 @@ import Foundation
 import UserNotifications
 
 @MainActor
-final class NotificationManager {
+final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
+    func setupDelegate() {
+        UNUserNotificationCenter.current().delegate = self
+        Logger.log("Notifications", "Set UNUserNotificationCenter delegate")
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
+    }
+
     func send(title: String, body: String) async {
         Logger.log("Notifications", "Sending local notification title=\(title) body=\(body)")
         let content = UNMutableNotificationContent()

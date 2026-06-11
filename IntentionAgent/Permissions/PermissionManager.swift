@@ -71,4 +71,30 @@ final class PermissionManager {
         Logger.log("Permissions", "Opening Notifications settings")
         NSWorkspace.shared.open(url)
     }
+
+    func pollAccessibility(timeout: TimeInterval = 30) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if AXIsProcessTrusted() {
+                Logger.log("Permissions", "Accessibility granted during poll")
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+        }
+        Logger.log("Permissions", "Accessibility poll timed out")
+        return AXIsProcessTrusted()
+    }
+
+    func pollScreenRecording(timeout: TimeInterval = 30) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if CGPreflightScreenCaptureAccess() {
+                Logger.log("Permissions", "Screen recording granted during poll")
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+        }
+        Logger.log("Permissions", "Screen recording poll timed out")
+        return CGPreflightScreenCaptureAccess()
+    }
 }
