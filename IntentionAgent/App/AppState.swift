@@ -163,11 +163,13 @@ final class AppState: ObservableObject {
         nudgePanelController.hide()
         if isOnTrack {
             latestNudgeMessage = "On track"
+            lastPeriodicNudgeDate = Date()
             Logger.log("Nudge", "User acknowledged on track")
         } else {
             currentAlignment = .drift
             latestNudgeMessage = "Self-reported drift"
-            Logger.log("Nudge", "User self-reported drift")
+            Logger.log("Nudge", "User self-reported drift, showing intention modal")
+            showIntentionModal()
         }
     }
 
@@ -293,7 +295,7 @@ final class AppState: ObservableObject {
         }
 
         let nudgeIntervalSeconds = max(60, settings.aiReviewIntervalSeconds)
-        if currentAlignment != .drift, self.lastPeriodicNudgeDate != nil {
+        if self.lastPeriodicNudgeDate != nil {
             if let lastPeriodicNudgeDate, Date().timeIntervalSince(lastPeriodicNudgeDate) >= TimeInterval(nudgeIntervalSeconds) {
                 if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
                     Logger.log("Tracking", "Periodic nudge skipped: nudge shown recently")
@@ -303,7 +305,7 @@ final class AppState: ObservableObject {
                     self.lastPeriodicNudgeDate = Date()
                 }
             }
-        } else if self.lastPeriodicNudgeDate == nil {
+        } else {
             self.lastPeriodicNudgeDate = Date()
         }
 

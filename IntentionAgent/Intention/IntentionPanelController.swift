@@ -24,7 +24,7 @@ final class IntentionPanelController {
 
         let newPanel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 380, height: 360),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            styleMask: [.titled, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )

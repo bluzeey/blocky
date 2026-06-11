@@ -17,7 +17,7 @@ final class NudgePanelController {
 
         let newPanel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 160),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            styleMask: [.titled, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
