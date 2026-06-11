@@ -68,7 +68,7 @@ struct AppSettings: Codable, Equatable {
         aiModelName: AIProviderPreset.umans.defaultModelName,
         metadataPollIntervalSeconds: 10,
         screenshotIntervalSeconds: 45,
-        aiReviewIntervalSeconds: 300,
+        aiReviewIntervalSeconds: 120,
         retentionHours: 24,
         storeRedactedPreviews: true,
         sendRedactedImagesToAI: true,

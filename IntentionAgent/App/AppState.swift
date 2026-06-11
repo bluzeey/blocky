@@ -35,6 +35,8 @@ final class AppState: ObservableObject {
     private var aiReviewTask: Task<Void, Never>?
     private var lastAIReviewDate: Date?
     private var lifecycleCancellables = Set<AnyCancellable>()
+    private let intentionPanelController = IntentionPanelController()
+    private let nudgePanelController = NudgePanelController()
 
     init() {
         let settingsStore = AppSettingsStore()
@@ -51,6 +53,7 @@ final class AppState: ObservableObject {
         self.nudgeService = NudgeService(notificationManager: notificationManager)
         notificationManager.setupDelegate()
         observeApplicationLifecycle()
+        nudgeService.appState = self
         Logger.log("AppState", "Initialized AppState")
         Task { [weak self] in
             await self?.startIfNeeded()
@@ -74,6 +77,14 @@ final class AppState: ObservableObject {
         isRunningTrackingLoop = true
         Logger.log("AppState", "Starting tracking and AI review loops")
 
+        if activeSession == nil {
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                guard let self, self.activeSession == nil else { return }
+                self.showIntentionModal()
+            }
+        }
+
         trackingTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
@@ -91,7 +102,7 @@ final class AppState: ObservableObject {
                 if let activeSession = self.activeSession, !activeSession.isPaused, self.settings.hasAIConfiguration {
                     await self.performAIReviewIfNeeded(session: activeSession)
                 }
-                try? await Task.sleep(nanoseconds: 15 * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: 2 * 60 * 1_000_000_000)
             }
         }
     }
@@ -108,6 +119,7 @@ final class AppState: ObservableObject {
         latestNudgeMessage = "Session started"
         lastAIReviewDate = nil
         recentEvents.removeAll()
+        hideIntentionModal()
         Logger.log("Session", "Started session id=\(session.id.uuidString) title=\(session.title)")
     }
 
@@ -122,12 +134,37 @@ final class AppState: ObservableObject {
         activeSession = nil
         driftSnoozeUntil = nil
         latestNudgeMessage = "Session ended"
+        nudgePanelController.hide()
     }
 
     func allowDriftForFiveMinutes() {
         driftSnoozeUntil = Date().addingTimeInterval(5 * 60)
         latestNudgeMessage = "Five-minute drift allowance enabled"
         Logger.log("Session", "Enabled five-minute drift allowance until \(driftSnoozeUntil?.description ?? "nil")")
+    }
+
+    func showIntentionModal() {
+        intentionPanelController.show(appState: self)
+    }
+
+    func hideIntentionModal() {
+        intentionPanelController.hide()
+    }
+
+    func showNudgePopup(sessionTitle: String, message: String) {
+        nudgePanelController.show(appState: self, sessionTitle: sessionTitle, message: message)
+    }
+
+    func acknowledgeNudge(isOnTrack: Bool) {
+        nudgePanelController.hide()
+        if isOnTrack {
+            latestNudgeMessage = "On track"
+            Logger.log("Nudge", "User acknowledged on track")
+        } else {
+            currentAlignment = .drift
+            latestNudgeMessage = "Self-reported drift"
+            Logger.log("Nudge", "User self-reported drift")
+        }
     }
 
     func requestAccessibilityPermission() {
@@ -147,6 +184,7 @@ final class AppState: ObservableObject {
     }
 
     func requestNotificationPermission() async {
+        NSApplication.shared.activate(ignoringOtherApps: true)
         _ = await permissionManager.requestNotificationPermission()
         await refreshPermissions()
     }

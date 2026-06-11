@@ -32,15 +32,25 @@ final class PermissionManager {
     func requestAccessibilityPermission() -> Bool {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         let granted = AXIsProcessTrustedWithOptions(options)
-        Logger.log("Permissions", "Requested accessibility permission. immediateGranted=\(granted)")
+        if !granted {
+            openAccessibilitySettings()
+            Logger.log("Permissions", "Requested accessibility permission, also opened System Settings")
+        } else {
+            Logger.log("Permissions", "Requested accessibility permission. immediateGranted=\(granted)")
+        }
         return granted
     }
 
     @discardableResult
     func requestScreenRecordingPermission() -> Bool {
-        let granted = CGRequestScreenCaptureAccess()
-        Logger.log("Permissions", "Requested screen recording permission. immediateGranted=\(granted)")
-        return granted
+        let currentlyGranted = CGPreflightScreenCaptureAccess()
+        if currentlyGranted {
+            Logger.log("Permissions", "Screen recording already granted")
+            return true
+        }
+        openScreenRecordingSettings()
+        Logger.log("Permissions", "Opened Screen Recording settings (CGRequestScreenCaptureAccess deprecated on macOS 26)")
+        return false
     }
 
     func requestNotificationPermission() async -> Bool {

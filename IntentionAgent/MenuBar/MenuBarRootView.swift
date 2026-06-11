@@ -62,66 +62,71 @@ struct MenuBarRootView: View {
 
     private var sessionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Current Intention")
-                .font(.headline)
+            if let session = appState.activeSession {
+                Text("Current Intention")
+                    .font(.headline)
 
-            TextField("I want to watch YouTube for 30 minutes", text: $appState.sessionDraft.title)
-            Stepper(value: $appState.sessionDraft.durationMinutes, in: 5...240, step: 5) {
-                Text("Duration: \(appState.sessionDraft.durationMinutes) minutes")
-            }
-            TextField("Allowed apps (comma separated)", text: $appState.sessionDraft.allowedAppsText)
-            TextField("Blocked apps (comma separated)", text: $appState.sessionDraft.blockedAppsText)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(session.title)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text(appState.sessionManager.remainingTimeText(for: session))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(session.isPaused ? "Resume" : "Pause") {
+                        appState.togglePauseSession()
+                    }
+                    .font(.caption2)
+                    .pointerCursor()
 
-            HStack {
-                Button(appState.activeSession == nil ? "Start Session" : "Switch Intention") {
-                    appState.startSessionFromDraft()
+                    Button("End") {
+                        appState.endSession()
+                    }
+                    .font(.caption2)
+                    .pointerCursor()
                 }
+
+                Button("Allow 5 Min Drift") {
+                    appState.allowDriftForFiveMinutes()
+                }
+                .font(.caption2)
                 .pointerCursor()
-
-                Button(appState.activeSession?.isPaused == true ? "Resume" : "Pause") {
-                    appState.togglePauseSession()
+            } else {
+                Button("New Intention") {
+                    appState.showIntentionModal()
                 }
-                .disabled(appState.activeSession == nil)
-                .pointerCursor()
-
-                Button("End") {
-                    appState.endSession()
-                }
-                .disabled(appState.activeSession == nil)
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity)
                 .pointerCursor()
             }
         }
     }
 
     private var contextSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Current Context")
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Context")
                 .font(.headline)
 
-            Text(appState.currentMetadata.map { "\($0.activeAppName) - \($0.windowTitle ?? "Unknown Window")" } ?? "No active context yet")
-            Text("Alignment: \(appState.currentAlignment.rawValue)")
-                .foregroundStyle(color(for: appState.currentAlignment))
-            Text(appState.currentDecision?.reason ?? "No privacy decision yet")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(appState.aiStatusMessage)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(appState.latestNudgeMessage)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack {
+                Circle()
+                    .fill(color(for: appState.currentAlignment))
+                    .frame(width: 8, height: 8)
+                Text(appState.currentMetadata.map { "\($0.activeAppName)" } ?? "No active context")
+                    .font(.caption)
+                Spacer()
+                Text(appState.currentAlignment.rawValue.capitalized)
+                    .font(.caption)
+                    .foregroundStyle(color(for: appState.currentAlignment))
+            }
         }
     }
 
     private var actionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Button("Allow 5 Min") {
-                    appState.allowDriftForFiveMinutes()
-                }
-                .disabled(appState.activeSession == nil)
-                .pointerCursor()
-
                 Button("Capture Library") {
                     openWindow(id: "capture-library")
                 }
