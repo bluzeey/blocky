@@ -4,9 +4,6 @@ struct IntentionModalView: View {
     @ObservedObject var appState: AppState
     @State private var title: String = ""
     @State private var durationMinutes: Int = 30
-    @State private var allowedAppsText: String = ""
-    @State private var blockedAppsText: String = ""
-    @State private var showingDetails: Bool = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -38,26 +35,6 @@ struct IntentionModalView: View {
                 ), in: 5...240, step: 5)
             }
 
-            Button(showingDetails ? "Hide app filters" : "Add app filters") {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showingDetails.toggle()
-                }
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            if showingDetails {
-                VStack(spacing: 8) {
-                    TextField("Allowed apps (comma separated)", text: $allowedAppsText)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.caption)
-                    TextField("Blocked apps (comma separated)", text: $blockedAppsText)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.caption)
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-
             HStack(spacing: 16) {
                 Button("Cancel") {
                     appState.hideIntentionModal()
@@ -68,9 +45,7 @@ struct IntentionModalView: View {
                 Button("Start") {
                     appState.sessionDraft = SessionDraft(
                         title: title,
-                        durationMinutes: durationMinutes,
-                        allowedAppsText: allowedAppsText,
-                        blockedAppsText: blockedAppsText
+                        durationMinutes: durationMinutes
                     )
                     appState.startSessionFromDraft()
                     appState.hideIntentionModal()
@@ -85,9 +60,6 @@ struct IntentionModalView: View {
         .onAppear {
             title = ""
             durationMinutes = 30
-            allowedAppsText = ""
-            blockedAppsText = ""
-            showingDetails = false
         }
     }
 }

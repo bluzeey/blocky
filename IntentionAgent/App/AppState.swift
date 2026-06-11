@@ -33,9 +33,10 @@ final class AppState: ObservableObject {
 
     private var trackingTask: Task<Void, Never>?
     private var aiReviewTask: Task<Void, Never>?
-    private var nudgeTimerTask: Task<Void, Never>?
     private var lastAIReviewDate: Date?
     private var lastNudgeShownDate: Date?
+    private var lastAIAlignmentCheckDate: Date?
+    private var lastPeriodicNudgeDate: Date?
     private var lifecycleCancellables = Set<AnyCancellable>()
     private let intentionPanelController = IntentionPanelController()
     private let nudgePanelController = NudgePanelController()
@@ -101,27 +102,10 @@ final class AppState: ObservableObject {
         aiReviewTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
-                if let activeSession = self.activeSession, !activeSession.isPaused, self.settings.hasAIConfiguration {
-                    await self.performAIReviewIfNeeded(session: activeSession)
+                if let activeSession = self.activeSession, !activeSession.isPaused {
+                    await self.performAIAlignmentCheck(session: activeSession)
                 }
-                try? await Task.sleep(nanoseconds: 2 * 60 * 1_000_000_000)
-            }
-        }
-
-        nudgeTimerTask = Task { [weak self] in
-            Logger.log("Nudge", "Nudge timer task started")
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: UInt64(max(60, self?.settings.aiReviewIntervalSeconds ?? 120)) * 1_000_000_000)
-                guard let self, let activeSession = self.activeSession, !activeSession.isPaused else {
-                    Logger.log("Nudge", "Nudge timer tick skipped: no active session or paused")
-                    continue
-                }
-                if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
-                    Logger.log("Nudge", "Nudge timer tick skipped: nudge shown recently")
-                    continue
-                }
-                Logger.log("Nudge", "Periodic nudge timer fired for session=\(activeSession.title)")
-                self.showNudgePopup(sessionTitle: activeSession.title, message: "Are you still on track?")
+                try? await Task.sleep(nanoseconds: UInt64(max(60, self.settings.aiReviewIntervalSeconds)) * 1_000_000_000)
             }
         }
     }
@@ -308,87 +292,70 @@ final class AppState: ObservableObject {
             }
         }
 
+        let nudgeIntervalSeconds = max(60, settings.aiReviewIntervalSeconds)
+        if currentAlignment != .drift, self.lastPeriodicNudgeDate != nil {
+            if let lastPeriodicNudgeDate, Date().timeIntervalSince(lastPeriodicNudgeDate) >= TimeInterval(nudgeIntervalSeconds) {
+                if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
+                    Logger.log("Tracking", "Periodic nudge skipped: nudge shown recently")
+                } else {
+                    Logger.log("Tracking", "Periodic nudge timer fired")
+                    showNudgePopup(sessionTitle: activeSession.title, message: "Are you still on track?")
+                    self.lastPeriodicNudgeDate = Date()
+                }
+            }
+        } else if self.lastPeriodicNudgeDate == nil {
+            self.lastPeriodicNudgeDate = Date()
+        }
+
         if sessionManager.isExpired(activeSession) {
             endSession()
         }
     }
 
-    private func performAIReviewIfNeeded(session: IntentionSession) async {
+    private func performAIAlignmentCheck(session: IntentionSession) async {
         let now = Date()
-        let reviewWindowStart = now.addingTimeInterval(TimeInterval(-settings.aiReviewIntervalSeconds))
+        let interval = TimeInterval(max(60, settings.aiReviewIntervalSeconds))
 
-        if let lastAIReviewDate, now.timeIntervalSince(lastAIReviewDate) < TimeInterval(settings.aiReviewIntervalSeconds) {
+        if let lastAIAlignmentCheckDate, now.timeIntervalSince(lastAIAlignmentCheckDate) < interval {
             return
         }
 
-        let records: [CaptureRecord]
-        do {
-            records = try captureLibraryStore.records(from: reviewWindowStart, to: now)
-        } catch {
-            aiStatusMessage = "Failed to load records for AI review"
-            Logger.log("AI", "Failed to load records for AI review: \(error.localizedDescription)")
+        if !settings.hasAIConfiguration {
             return
         }
 
-        guard !records.isEmpty else {
-            Logger.log("AI", "Skipping AI review because no records were found in the review window")
+        let recentApps = recentEvents.suffix(20).map { (app: $0.metadata.activeAppName, title: $0.metadata.windowTitle ?? "Unknown") }
+        guard !recentApps.isEmpty else {
+            Logger.log("AI", "Skipping alignment check: no recent events")
             return
         }
 
-        aiStatusMessage = "Preparing AI review"
-        let payload = aiPayloadBuilder.buildPayload(session: session, records: records, defaultIntervalSeconds: settings.metadataPollIntervalSeconds)
-        Logger.log("AI", "Prepared payload for \(records.count) records")
+        aiStatusMessage = "Checking alignment..."
+        Logger.log("AI", "Starting lightweight alignment check")
 
         do {
-            let reviewResponse = try await aiClient.review(payload: payload, records: records, libraryStore: captureLibraryStore, settings: settings)
-            let payloadID = UUID()
-            let payloadPath = captureLibraryStore.payloadPath(for: payloadID, timestamp: now)
-            let prettyPayloadData = try JSONEncoder.prettyPrinted.encode(payload)
-
-            let payloadRecord = AIPayloadRecord(
-                id: payloadID,
-                sessionID: session.id,
-                createdAt: now,
-                startedAt: reviewWindowStart,
-                endedAt: now,
-                payloadPath: payloadPath,
-                responseSummary: reviewResponse.message,
-                alignment: reviewResponse.alignment
+            let response = try await aiClient.checkAlignment(
+                intention: session.title,
+                recentApps: recentApps,
+                settings: settings
             )
 
-            try captureLibraryStore.savePayloadRecord(payloadRecord, payloadData: prettyPayloadData)
+            lastAIAlignmentCheckDate = now
+            currentAlignment = response.alignment
+            aiStatusMessage = "Last check: \(response.alignment.rawValue)"
+            latestNudgeMessage = response.message
+            Logger.log("AI", "Alignment check completed: alignment=\(response.alignment.rawValue) message=\(response.message)")
 
-            for record in records {
-                let updatedRecord = CaptureRecord(
-                    id: record.id,
-                    timestamp: record.timestamp,
-                    activeAppName: record.activeAppName,
-                    bundleIdentifier: record.bundleIdentifier,
-                    windowTitle: record.windowTitle,
-                    capturePolicy: record.capturePolicy,
-                    activityCategory: record.activityCategory,
-                    alignment: record.alignment,
-                    redactedPreviewPath: record.redactedPreviewPath,
-                    rawScreenshotStored: record.rawScreenshotStored,
-                    safeSummary: record.safeSummary,
-                    aiPayloadPath: payloadPath,
-                    skippedReason: record.skippedReason,
-                    redactionReasons: record.redactionReasons,
-                    sentToAI: true,
-                    privacyDecisionReason: record.privacyDecisionReason
-                )
-                try captureLibraryStore.saveCaptureRecord(updatedRecord, previewData: nil)
+            if response.alignment == .drift || response.alignment == .sensitive {
+                if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
+                    Logger.log("AI", "AI detected drift but nudge shown recently, skipping popup")
+                } else {
+                    showNudgePopup(sessionTitle: session.title, message: response.message)
+                }
             }
-
-            lastAIReviewDate = now
-            currentAlignment = reviewResponse.alignment
-            aiStatusMessage = "Last review: \(reviewResponse.alignment.rawValue)"
-            latestNudgeMessage = reviewResponse.message
-            Logger.log("AI", "Review stored successfully with alignment=\(reviewResponse.alignment.rawValue)")
-            await nudgeService.handleReviewResponse(reviewResponse, session: session)
         } catch {
-            aiStatusMessage = "AI review failed: \(error.localizedDescription)"
-            Logger.log("AI", "AI review failed: \(error.localizedDescription)")
+            aiStatusMessage = "AI check failed: \(error.localizedDescription)"
+            Logger.log("AI", "AI alignment check failed: \(error.localizedDescription)")
         }
     }
 

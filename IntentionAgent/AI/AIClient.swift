@@ -105,6 +105,65 @@ struct AIClient {
         return reviewResponse
     }
 
+    func checkAlignment(
+        intention: String,
+        recentApps: [(app: String, title: String)],
+        settings: AppSettings
+    ) async throws -> AIReviewResponse {
+        guard settings.hasAIConfiguration else {
+            throw NSError(domain: "AIClient", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing AI provider API key"])
+        }
+
+        guard let url = URL(string: settings.aiBaseURLString) else {
+            throw NSError(domain: "AIClient", code: 3, userInfo: [NSLocalizedDescriptionKey: "Invalid AI base URL"])
+        }
+
+        let appDescriptions = recentApps.map { "\($0.app) — \($0.title)" }.joined(separator: "\n")
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(settings.aiAPIKey)", forHTTPHeaderField: "Authorization")
+
+        let requestBody: [String: Any] = [
+            "model": settings.aiModelName,
+            "stream": false,
+            "messages": [
+                [
+                    "role": "system",
+                    "content": "You judge whether the user's current activity aligns with their stated intention. Respond with strict JSON: {\"alignment\":\"aligned|drift|neutral\",\"message\":\"brief reason\",\"suggested_action\":\"continue|return|pause\"}"
+                ],
+                [
+                    "role": "user",
+                    "content": "Intention: \(intention)\n\nRecent activity:\n\(appDescriptions)"
+                ]
+            ]
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        let configuration = URLSessionConfiguration.default
+        configuration.urlCache = nil
+        configuration.httpCookieStorage = nil
+        let session = URLSession(configuration: configuration)
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error body"
+            Logger.log("AI", "Alignment check failed with non-2xx response: \(errorBody)")
+            throw NSError(domain: "AIClient", code: 2, userInfo: [NSLocalizedDescriptionKey: "Alignment check failed: \(errorBody)"])
+        }
+
+        let decodedResponse = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
+        let rawContent = decodedResponse.choices.first?.message.content ?? "{}"
+        let jsonSubstring = extractJSONObject(from: rawContent) ?? rawContent
+        let responseData = Data(jsonSubstring.utf8)
+        let reviewResponse = try JSONDecoder().decode(AIReviewResponse.self, from: responseData)
+        Logger.log("AI", "Alignment check completed: alignment=\(reviewResponse.alignment.rawValue) message=\(reviewResponse.message)")
+        return reviewResponse
+    }
+
     private func extractJSONObject(from text: String) -> String? {
         guard let firstBrace = text.firstIndex(of: "{"), let lastBrace = text.lastIndex(of: "}") else {
             return nil

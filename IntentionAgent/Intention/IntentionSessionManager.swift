@@ -128,7 +128,8 @@ final class IntentionSessionManager {
             return .aligned
         }
 
-        if category == .socialMedia || category == .video || category == .messaging {
+        let driftCategories: Set<ActivityCategory> = [.socialMedia, .video, .messaging, .browsing]
+        if driftCategories.contains(category) {
             return .drift
         }
 
