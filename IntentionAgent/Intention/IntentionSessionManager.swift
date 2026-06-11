@@ -1,7 +1,28 @@
 import Foundation
 
+private let titleKeywordCategoryMap: [ActivityCategory: Set<String>] = [
+    .coding: ["coding", "code", "develop", "debug", "build", "program", "swift", "xcode", "app", "software", "engineer", "deploy", "refactor", "compile", "git", "repo", "terminal", "cli", "script", "api", "backend", "frontend", "fullstack", "ios", "android", "web dev"],
+    .productivity: ["write", "writing", "blog", "document", "research", "study", "learn", "read", "paper", "report", "presentation", "slides", "meeting", "plan", "organize", "budget", "spreadsheet", "excel", "notion", "docs"],
+    .email: ["email", "inbox", "mail", "compose"],
+    .video: ["watch", "stream", "video", "movie", "youtube", "netflix", "show", "episode"],
+    .socialMedia: ["social", "twitter", "x", "instagram", "tiktok", "facebook", "reddit", "linkedin", "post", "feed", "scroll", "mastodon", "threads"],
+    .messaging: ["chat", "message", "slack", "discord", "text", "whatsapp", "telegram", "communicate"],
+    .browsing: ["browse", "surf", "shop", "buy", "news", "read"],
+]
+
 @MainActor
 final class IntentionSessionManager {
+    func inferCategoriesFromTitle(_ title: String) -> Set<ActivityCategory> {
+        let lowercased = title.lowercased()
+        var inferred = Set<ActivityCategory>()
+        for (category, keywords) in titleKeywordCategoryMap {
+            if keywords.contains(where: { lowercased.contains($0) }) {
+                inferred.insert(category)
+            }
+        }
+        return inferred
+    }
+
     func remainingTimeText(for session: IntentionSession) -> String {
         let remainingSeconds = max(0, Int(effectiveEndDate(for: session).timeIntervalSinceNow))
         let minutes = remainingSeconds / 60
@@ -96,6 +117,19 @@ final class IntentionSessionManager {
 
         if !session.allowedApps.isEmpty || !session.allowedCategories.isEmpty {
             return .neutral
+        }
+
+        let inferredCategories = inferCategoriesFromTitle(session.title)
+        if inferredCategories.isEmpty {
+            return .neutral
+        }
+
+        if inferredCategories.contains(category) {
+            return .aligned
+        }
+
+        if category == .socialMedia || category == .video || category == .messaging {
+            return .drift
         }
 
         return .neutral

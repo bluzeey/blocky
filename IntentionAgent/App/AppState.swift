@@ -109,13 +109,18 @@ final class AppState: ObservableObject {
         }
 
         nudgeTimerTask = Task { [weak self] in
-            guard let self else { return }
+            Logger.log("Nudge", "Nudge timer task started")
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: UInt64(max(60, self.settings.aiReviewIntervalSeconds)) * 1_000_000_000)
-                guard let activeSession = self.activeSession, !activeSession.isPaused else { continue }
-                if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 { continue }
-                Logger.log("Nudge", "Periodic nudge timer fired")
-                self.lastNudgeShownDate = Date()
+                try? await Task.sleep(nanoseconds: UInt64(max(60, self?.settings.aiReviewIntervalSeconds ?? 120)) * 1_000_000_000)
+                guard let self, let activeSession = self.activeSession, !activeSession.isPaused else {
+                    Logger.log("Nudge", "Nudge timer tick skipped: no active session or paused")
+                    continue
+                }
+                if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
+                    Logger.log("Nudge", "Nudge timer tick skipped: nudge shown recently")
+                    continue
+                }
+                Logger.log("Nudge", "Periodic nudge timer fired for session=\(activeSession.title)")
                 self.showNudgePopup(sessionTitle: activeSession.title, message: "Are you still on track?")
             }
         }
@@ -290,8 +295,18 @@ final class AppState: ObservableObject {
 
         currentMetadata = metadata
         currentDecision = privacyDecision
+        let previousAlignment = currentAlignment
         currentAlignment = alignment
         Logger.log("Tracking", "Tracking tick completed with alignment=\(alignment.rawValue) policy=\(privacyDecision.policy.rawValue)")
+
+        if alignment == .drift, previousAlignment != .drift {
+            if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
+                Logger.log("Tracking", "Drift detected but nudge shown recently, skipping popup")
+            } else {
+                Logger.log("Tracking", "Drift detected, showing nudge popup")
+                showNudgePopup(sessionTitle: activeSession.title, message: "You seem to have drifted from your intention. Are you on track?")
+            }
+        }
 
         if sessionManager.isExpired(activeSession) {
             endSession()
