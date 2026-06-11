@@ -1,0 +1,103 @@
+import Foundation
+
+@MainActor
+final class IntentionSessionManager {
+    func remainingTimeText(for session: IntentionSession) -> String {
+        let remainingSeconds = max(0, Int(effectiveEndDate(for: session).timeIntervalSinceNow))
+        let minutes = remainingSeconds / 60
+        let seconds = remainingSeconds % 60
+        return String(format: "%02d:%02d remaining", minutes, seconds)
+    }
+
+    func effectiveEndDate(for session: IntentionSession) -> Date {
+        let activePauseSeconds: Int
+        if let pauseStartedAt = session.pauseStartedAt {
+            activePauseSeconds = Int(Date().timeIntervalSince(pauseStartedAt))
+        } else {
+            activePauseSeconds = 0
+        }
+
+        return session.endsAt.addingTimeInterval(TimeInterval(session.totalPausedSeconds + activePauseSeconds))
+    }
+
+    func pause(_ session: IntentionSession) -> IntentionSession {
+        guard session.pauseStartedAt == nil else { return session }
+        var pausedSession = session
+        pausedSession = IntentionSession(
+            id: session.id,
+            title: session.title,
+            startedAt: session.startedAt,
+            endsAt: session.endsAt,
+            allowedApps: session.allowedApps,
+            allowedCategories: session.allowedCategories,
+            blockedApps: session.blockedApps,
+            blockedCategories: session.blockedCategories,
+            aiReviewIntervalSeconds: session.aiReviewIntervalSeconds,
+            pauseStartedAt: Date(),
+            totalPausedSeconds: session.totalPausedSeconds
+        )
+        return pausedSession
+    }
+
+    func resume(_ session: IntentionSession) -> IntentionSession {
+        guard let pauseStartedAt = session.pauseStartedAt else { return session }
+        let additionalPausedSeconds = Int(Date().timeIntervalSince(pauseStartedAt))
+        return IntentionSession(
+            id: session.id,
+            title: session.title,
+            startedAt: session.startedAt,
+            endsAt: session.endsAt,
+            allowedApps: session.allowedApps,
+            allowedCategories: session.allowedCategories,
+            blockedApps: session.blockedApps,
+            blockedCategories: session.blockedCategories,
+            aiReviewIntervalSeconds: session.aiReviewIntervalSeconds,
+            pauseStartedAt: nil,
+            totalPausedSeconds: session.totalPausedSeconds + additionalPausedSeconds
+        )
+    }
+
+    func isExpired(_ session: IntentionSession) -> Bool {
+        effectiveEndDate(for: session) <= Date()
+    }
+
+    func evaluateAlignment(
+        session: IntentionSession?,
+        metadata: WindowMetadata,
+        category: ActivityCategory,
+        privacyDecision: PrivacyDecision,
+        settings: AppSettings
+    ) -> Alignment {
+        guard let session else { return .unknown }
+
+        if privacyDecision.isSensitive {
+            return .sensitive
+        }
+
+        let appName = metadata.activeAppName.lowercased()
+        let allowedApps = Set(session.allowedApps.map { $0.lowercased() })
+        let blockedApps = Set(session.blockedApps.map { $0.lowercased() } + settings.userBlockedAppKeywords.map { $0.lowercased() })
+
+        if blockedApps.contains(where: { appName.contains($0) }) {
+            return .drift
+        }
+
+        if session.blockedCategories.contains(category) {
+            return .drift
+        }
+
+        if allowedApps.contains(where: { appName.contains($0) }) {
+            return .aligned
+        }
+
+        if session.allowedCategories.contains(category) {
+            return .aligned
+        }
+
+        if !session.allowedApps.isEmpty || !session.allowedCategories.isEmpty {
+            return .neutral
+        }
+
+        return .unknown
+    }
+}
