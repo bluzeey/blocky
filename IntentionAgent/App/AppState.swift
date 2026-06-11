@@ -38,7 +38,9 @@ final class AppState: ObservableObject {
     private var lastAIAlignmentCheckDate: Date?
     private var lastPeriodicNudgeDate: Date?
     private var lifecycleCancellables = Set<AnyCancellable>()
-    private var aiAlignmentOverrides: [String: (alignment: Alignment, timestamp: Date)] = [:]
+    private var aiValidatedAlignment: Alignment?
+    private var aiValidatedAt: Date?
+    private var aiValidatedAppTitle: String?
     private let intentionPanelController = IntentionPanelController()
     private let nudgePanelController = NudgePanelController()
 
@@ -123,7 +125,6 @@ final class AppState: ObservableObject {
         latestNudgeMessage = "Session started"
         lastAIReviewDate = nil
         recentEvents.removeAll()
-        aiAlignmentOverrides.removeAll()
         hideIntentionModal()
         Logger.log("Session", "Started session id=\(session.id.uuidString) title=\(session.title)")
     }
@@ -140,6 +141,7 @@ final class AppState: ObservableObject {
         driftSnoozeUntil = nil
         latestNudgeMessage = "Session ended"
         nudgePanelController.hide()
+        showIntentionModal()
     }
 
     func allowDriftForFiveMinutes() {
@@ -223,6 +225,15 @@ final class AppState: ObservableObject {
             privacyDecision: privacyDecision,
             settings: settings
         )
+
+        let appTitleKey = "\(metadata.activeAppName)|\(metadata.windowTitle ?? "")"
+        if let aiValidatedAlignment, let aiValidatedAt, let aiValidatedAppTitle,
+           aiValidatedAppTitle == appTitleKey,
+           Date().timeIntervalSince(aiValidatedAt) < 60,
+           alignment == .drift {
+            alignment = aiValidatedAlignment
+            Logger.log("Tracking", "Applied recent AI validation: alignment=\(alignment.rawValue)")
+        }
 
         if let driftSnoozeUntil, driftSnoozeUntil > Date(), alignment == .drift {
             alignment = .neutral
@@ -324,17 +335,6 @@ final class AppState: ObservableObject {
         metadata: WindowMetadata,
         category: ActivityCategory
     ) async {
-        let cacheKey = "\(session.title)-\(category.rawValue)"
-
-        if let cached = aiAlignmentOverrides[cacheKey], Date().timeIntervalSince(cached.timestamp) < 300 {
-            currentAlignment = cached.alignment
-            Logger.log("Tracking", "Keyword drift overridden by cached AI result: alignment=\(cached.alignment.rawValue)")
-            if cached.alignment == .drift || cached.alignment == .sensitive {
-                showNudgePopup(sessionTitle: session.title, message: "You seem to have drifted from your intention. Are you on track?")
-            }
-            return
-        }
-
         if !settings.hasAIConfiguration {
             Logger.log("Tracking", "Drift detected, no AI configured, showing nudge popup")
             showNudgePopup(sessionTitle: session.title, message: "You seem to have drifted from your intention. Are you on track?")
@@ -356,7 +356,11 @@ final class AppState: ObservableObject {
             currentAlignment = response.alignment
             aiStatusMessage = "Last check: \(response.alignment.rawValue)"
             latestNudgeMessage = response.message
-            aiAlignmentOverrides[cacheKey] = (response.alignment, Date())
+
+            let appTitleKey = "\(metadata.activeAppName)|\(metadata.windowTitle ?? "")"
+            aiValidatedAlignment = response.alignment
+            aiValidatedAt = Date()
+            aiValidatedAppTitle = appTitleKey
 
             if response.alignment == .drift || response.alignment == .sensitive {
                 Logger.log("Tracking", "AI confirmed drift, showing nudge popup")

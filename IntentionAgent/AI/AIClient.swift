@@ -101,7 +101,7 @@ struct AIClient {
         let jsonSubstring = extractJSONObject(from: rawContent) ?? rawContent
         let responseData = Data(jsonSubstring.utf8)
         let reviewResponse = try JSONDecoder().decode(AIReviewResponse.self, from: responseData)
-        Logger.log("AI", "AI review completed with alignment=\(reviewResponse.alignment.rawValue) action=\(reviewResponse.suggestedAction)")
+        Logger.log("AI", "AI review completed with alignment=\(reviewResponse.alignment.rawValue) action=\(reviewResponse.suggestedAction ?? "nil")")
         return reviewResponse
     }
 
@@ -157,6 +157,7 @@ struct AIClient {
 
         let decodedResponse = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
         let rawContent = decodedResponse.choices.first?.message.content ?? "{}"
+        Logger.log("AI", "Raw alignment response: \(rawContent)")
         let jsonSubstring = extractJSONObject(from: rawContent) ?? rawContent
         let responseData = Data(jsonSubstring.utf8)
         let reviewResponse = try JSONDecoder().decode(AIReviewResponse.self, from: responseData)
