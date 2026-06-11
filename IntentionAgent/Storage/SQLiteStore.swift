@@ -9,6 +9,7 @@ final class SQLiteStore {
         self.databaseURL = databaseURL
         try openDatabase()
         try createSchemaIfNeeded()
+        Logger.log("SQLite", "Opened database at \(databaseURL.path)")
     }
 
     deinit {
@@ -33,6 +34,7 @@ final class SQLiteStore {
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw databaseError(prefix: "Failed to insert capture record")
         }
+        Logger.log("SQLite", "Inserted capture record \(record.id.uuidString)")
     }
 
     func insertPayloadRecord(_ record: AIPayloadRecord) throws {
@@ -52,6 +54,7 @@ final class SQLiteStore {
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw databaseError(prefix: "Failed to insert payload record")
         }
+        Logger.log("SQLite", "Inserted payload record \(record.id.uuidString)")
     }
 
     func fetchCaptureRecords(limit: Int = 200) throws -> [CaptureRecord] {
@@ -106,6 +109,7 @@ final class SQLiteStore {
     func deleteAllRecords() throws {
         try execute(sql: "DELETE FROM capture_records;")
         try execute(sql: "DELETE FROM payload_records;")
+        Logger.log("SQLite", "Deleted all capture and payload rows")
     }
 
     private func openDatabase() throws {

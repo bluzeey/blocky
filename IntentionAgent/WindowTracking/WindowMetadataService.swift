@@ -4,7 +4,10 @@ import Foundation
 @MainActor
 final class WindowMetadataService {
     func currentWindowMetadata() -> WindowMetadata? {
-        guard let frontmostApplication = NSWorkspace.shared.frontmostApplication else { return nil }
+        guard let frontmostApplication = NSWorkspace.shared.frontmostApplication else {
+            Logger.log("WindowTracking", "No frontmost application")
+            return nil
+        }
 
         let processIdentifier = frontmostApplication.processIdentifier
         let appName = frontmostApplication.localizedName ?? "Unknown App"
@@ -29,7 +32,7 @@ final class WindowMetadataService {
             windowBounds = CGRect(dictionaryRepresentation: boundsDictionary as CFDictionary)
         }
 
-        return WindowMetadata(
+        let metadata = WindowMetadata(
             activeAppName: appName,
             bundleIdentifier: bundleIdentifier,
             windowTitle: windowTitle,
@@ -37,5 +40,7 @@ final class WindowMetadataService {
             windowBounds: windowBounds,
             timestamp: Date()
         )
+        Logger.log("WindowTracking", "Resolved window metadata: app=\(metadata.activeAppName) title=\(metadata.windowTitle ?? "nil") bundle=\(metadata.bundleIdentifier ?? "nil") windowID=\(metadata.windowID.map(String.init) ?? "nil")")
+        return metadata
     }
 }

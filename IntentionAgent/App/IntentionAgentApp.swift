@@ -2,11 +2,14 @@ import SwiftUI
 
 @main
 struct IntentionAgentApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appState = AppState()
 
     var body: some Scene {
-        MenuBarExtra("IntentionAgent", systemImage: menuBarSymbolName) {
+        MenuBarExtra {
             MenuBarRootView(appState: appState)
+        } label: {
+            MenuBarStatusIcon(alignment: appState.currentAlignment)
         }
 
         Window("Capture Library", id: "capture-library") {
@@ -20,16 +23,4 @@ struct IntentionAgentApp: App {
         .defaultSize(width: 720, height: 620)
     }
 
-    private var menuBarSymbolName: String {
-        switch appState.currentAlignment {
-        case .aligned:
-            return "circle.fill"
-        case .drift:
-            return "exclamationmark.circle.fill"
-        case .sensitive:
-            return "lock.circle.fill"
-        case .neutral, .unknown:
-            return "circle.dashed"
-        }
-    }
 }

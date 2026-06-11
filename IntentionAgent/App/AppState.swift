@@ -35,6 +35,7 @@ final class AppState: ObservableObject {
     private var lastAIReviewDate: Date?
 
     init() {
+        Logger.bootstrap()
         let settingsStore = AppSettingsStore()
         let captureLibraryStore = CaptureLibraryStore()
         let notificationManager = NotificationManager()
@@ -47,14 +48,17 @@ final class AppState: ObservableObject {
         self.captureCoordinator = CaptureCoordinator()
         self.notificationManager = notificationManager
         self.nudgeService = NudgeService(notificationManager: notificationManager)
+        Logger.log("AppState", "Initialized AppState")
     }
 
     func refreshSettings() {
         settings = settingsStore.settings
+        Logger.log("AppState", "Refreshed settings from store")
     }
 
     func refreshPermissions() async {
         permissionSnapshot = await permissionManager.refreshSnapshot()
+        Logger.log("AppState", "Permission snapshot updated")
     }
 
     func startIfNeeded() async {
@@ -62,6 +66,7 @@ final class AppState: ObservableObject {
         try? captureLibraryStore.reload()
         await refreshPermissions()
         isRunningTrackingLoop = true
+        Logger.log("AppState", "Starting tracking and AI review loops")
 
         trackingTask = Task { [weak self] in
             guard let self else { return }
@@ -88,6 +93,7 @@ final class AppState: ObservableObject {
     func saveSettings(_ settings: AppSettings) {
         settingsStore.replace(with: settings)
         refreshSettings()
+        Logger.log("AppState", "Saved settings")
     }
 
     func startSessionFromDraft() {
@@ -96,14 +102,17 @@ final class AppState: ObservableObject {
         latestNudgeMessage = "Session started"
         lastAIReviewDate = nil
         recentEvents.removeAll()
+        Logger.log("Session", "Started session id=\(session.id.uuidString) title=\(session.title)")
     }
 
     func togglePauseSession() {
         guard let activeSession else { return }
         self.activeSession = activeSession.isPaused ? sessionManager.resume(activeSession) : sessionManager.pause(activeSession)
+        Logger.log("Session", "Toggled pause. paused=\(self.activeSession?.isPaused == true)")
     }
 
     func endSession() {
+        Logger.log("Session", "Ended session id=\(activeSession?.id.uuidString ?? "nil")")
         activeSession = nil
         driftSnoozeUntil = nil
         latestNudgeMessage = "Session ended"
@@ -112,6 +121,7 @@ final class AppState: ObservableObject {
     func allowDriftForFiveMinutes() {
         driftSnoozeUntil = Date().addingTimeInterval(5 * 60)
         latestNudgeMessage = "Five-minute drift allowance enabled"
+        Logger.log("Session", "Enabled five-minute drift allowance until \(driftSnoozeUntil?.description ?? "nil")")
     }
 
     func requestAccessibilityPermission() {
@@ -130,13 +140,20 @@ final class AppState: ObservableObject {
     func deleteAllCaptures() {
         do {
             try captureLibraryStore.deleteAll()
+            Logger.log("AppState", "Deleted all captures from UI action")
         } catch {
             latestNudgeMessage = "Failed to delete captures: \(error.localizedDescription)"
+            Logger.log("AppState", "Failed to delete captures: \(error.localizedDescription)")
         }
     }
 
     private func performTrackingTick() async {
-        guard let metadata = windowMetadataService.currentWindowMetadata(), let activeSession else { return }
+        guard let metadata = windowMetadataService.currentWindowMetadata(), let activeSession else {
+            Logger.log("Tracking", "Skipping tracking tick because metadata or session is missing")
+            return
+        }
+
+        Logger.log("Tracking", "Tracking tick for app=\(metadata.activeAppName) title=\(metadata.windowTitle ?? "nil")")
 
         let privacyDecision = privacyPolicyEngine.decidePolicy(for: metadata, settings: settings)
         var alignment = sessionManager.evaluateAlignment(
@@ -149,6 +166,7 @@ final class AppState: ObservableObject {
 
         if let driftSnoozeUntil, driftSnoozeUntil > Date(), alignment == .drift {
             alignment = .neutral
+            Logger.log("Tracking", "Drift was snoozed; alignment downgraded to neutral")
         }
 
         let processingResult = await captureCoordinator.process(
@@ -206,6 +224,7 @@ final class AppState: ObservableObject {
         currentMetadata = metadata
         currentDecision = privacyDecision
         currentAlignment = alignment
+        Logger.log("Tracking", "Tracking tick completed with alignment=\(alignment.rawValue) policy=\(privacyDecision.policy.rawValue)")
 
         if sessionManager.isExpired(activeSession) {
             endSession()
@@ -225,13 +244,18 @@ final class AppState: ObservableObject {
             records = try captureLibraryStore.records(from: reviewWindowStart, to: now)
         } catch {
             aiStatusMessage = "Failed to load records for AI review"
+            Logger.log("AI", "Failed to load records for AI review: \(error.localizedDescription)")
             return
         }
 
-        guard !records.isEmpty else { return }
+        guard !records.isEmpty else {
+            Logger.log("AI", "Skipping AI review because no records were found in the review window")
+            return
+        }
 
         aiStatusMessage = "Preparing AI review"
         let payload = aiPayloadBuilder.buildPayload(session: session, records: records, defaultIntervalSeconds: settings.metadataPollIntervalSeconds)
+        Logger.log("AI", "Prepared payload for \(records.count) records")
 
         do {
             let reviewResponse = try await aiClient.review(payload: payload, records: records, libraryStore: captureLibraryStore, settings: settings)
@@ -278,9 +302,11 @@ final class AppState: ObservableObject {
             currentAlignment = reviewResponse.alignment
             aiStatusMessage = "Last review: \(reviewResponse.alignment.rawValue)"
             latestNudgeMessage = reviewResponse.message
+            Logger.log("AI", "Review stored successfully with alignment=\(reviewResponse.alignment.rawValue)")
             await nudgeService.handleReviewResponse(reviewResponse, session: session)
         } catch {
             aiStatusMessage = "AI review failed: \(error.localizedDescription)"
+            Logger.log("AI", "AI review failed: \(error.localizedDescription)")
         }
     }
 }

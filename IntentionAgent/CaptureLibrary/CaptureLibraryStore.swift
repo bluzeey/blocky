@@ -16,6 +16,7 @@ final class CaptureLibraryStore: ObservableObject {
             try fileSystemLayout.createDirectoriesIfNeeded(fileManager: fileManager)
             sqliteStore = try SQLiteStore(databaseURL: fileSystemLayout.databaseURL)
             try reload()
+            Logger.log("CaptureLibrary", "Initialized capture library store at \(fileSystemLayout.captureLibraryURL.path)")
         } catch {
             fatalError("Failed to initialize CaptureLibraryStore: \(error.localizedDescription)")
         }
@@ -24,6 +25,7 @@ final class CaptureLibraryStore: ObservableObject {
     func reload() throws {
         captureRecords = try sqliteStore.fetchCaptureRecords(limit: 300)
         payloadRecords = try sqliteStore.fetchPayloadRecords(limit: 100)
+        Logger.log("CaptureLibrary", "Reloaded store with \(captureRecords.count) captures and \(payloadRecords.count) payloads")
     }
 
     func records(from startDate: Date, to endDate: Date) throws -> [CaptureRecord] {
@@ -31,10 +33,12 @@ final class CaptureLibraryStore: ObservableObject {
     }
 
     func saveCaptureRecord(_ record: CaptureRecord, previewData: Data?) throws {
+        Logger.log("CaptureLibrary", "Saving capture record id=\(record.id.uuidString) app=\(record.activeAppName) policy=\(record.capturePolicy.rawValue) previewStored=\(previewData != nil)")
         if let previewData, let previewPath = record.redactedPreviewPath {
             let previewURL = URL(fileURLWithPath: previewPath)
             try fileManager.createDirectory(at: previewURL.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: nil)
             try previewData.write(to: previewURL, options: .atomic)
+            Logger.log("CaptureLibrary", "Wrote preview to \(previewURL.path)")
         }
 
         try sqliteStore.insertCaptureRecord(record)
@@ -51,6 +55,7 @@ final class CaptureLibraryStore: ObservableObject {
         try fileManager.createDirectory(at: payloadURL.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: nil)
         try payloadData.write(to: payloadURL, options: .atomic)
         try sqliteStore.insertPayloadRecord(record)
+        Logger.log("CaptureLibrary", "Saved AI payload record id=\(record.id.uuidString) path=\(record.payloadPath)")
         try reload()
     }
 
@@ -76,6 +81,7 @@ final class CaptureLibraryStore: ObservableObject {
     }
 
     func deleteAll() throws {
+        Logger.log("CaptureLibrary", "Deleting all stored captures and payloads")
         try sqliteStore.deleteAllRecords()
 
         for directoryURL in [fileSystemLayout.previewsURL, fileSystemLayout.payloadsURL, fileSystemLayout.skippedURL, fileSystemLayout.exportsURL] {
@@ -101,5 +107,6 @@ final class CaptureLibraryStore: ObservableObject {
         } else {
             try lineData.write(to: fileSystemLayout.skippedEventsURL, options: .atomic)
         }
+        Logger.log("CaptureLibrary", "Appended skipped event for record id=\(record.id.uuidString)")
     }
 }

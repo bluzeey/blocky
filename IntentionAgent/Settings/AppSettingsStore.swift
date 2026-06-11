@@ -12,8 +12,10 @@ final class AppSettingsStore: ObservableObject {
         if let data = userDefaults.data(forKey: settingsKey),
            let decodedSettings = try? JSONDecoder().decode(AppSettings.self, from: data) {
             settings = decodedSettings
+            Logger.log("Settings", "Loaded persisted settings")
         } else {
             settings = .default
+            Logger.log("Settings", "Using default settings")
         }
     }
 
@@ -32,5 +34,6 @@ final class AppSettingsStore: ObservableObject {
     private func persist() {
         guard let encodedSettings = try? JSONEncoder().encode(settings) else { return }
         userDefaults.set(encodedSettings, forKey: settingsKey)
+        Logger.log("Settings", "Persisted settings update")
     }
 }

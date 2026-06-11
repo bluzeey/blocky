@@ -4,6 +4,7 @@ import UserNotifications
 @MainActor
 final class NotificationManager {
     func send(title: String, body: String) async {
+        Logger.log("Notifications", "Sending local notification title=\(title) body=\(body)")
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body

@@ -13,73 +13,109 @@ struct PrivacyPolicyEngine {
         let title = metadata.windowTitle?.lowercased() ?? ""
         let appName = metadata.activeAppName.lowercased()
 
+        let decision: PrivacyDecision
+
         if isBrowserApp(bundleIdentifier: bundleIdentifier, appName: appName) {
             if isPrivateWindow(title: title) {
-                return PrivacyDecision(policy: .noCapture, category: .browsing, reason: "Private or incognito browser window detected", isSensitive: true)
+                decision = PrivacyDecision(policy: .noCapture, category: .browsing, reason: "Private or incognito browser window detected", isSensitive: true)
+                Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+                return decision
             }
 
             if isPaymentOrBanking(title: title, appName: appName, settings: settings) {
-                return PrivacyDecision(policy: .noCapture, category: .payment, reason: "Payment or banking page detected in browser", isSensitive: true)
+                decision = PrivacyDecision(policy: .noCapture, category: .payment, reason: "Payment or banking page detected in browser", isSensitive: true)
+                Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+                return decision
             }
 
             if isEmail(title: title, appName: appName) {
-                return PrivacyDecision(policy: .metadataOnly, category: .email, reason: "Email page in browser is metadata-only", isSensitive: false)
+                decision = PrivacyDecision(policy: .metadataOnly, category: .email, reason: "Email page in browser is metadata-only", isSensitive: false)
+                Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+                return decision
             }
 
             if isVideo(title: title, appName: appName) {
-                return PrivacyDecision(policy: .redactedScreenshot, category: .video, reason: "Browser video page stores redacted screenshots", isSensitive: false)
+                decision = PrivacyDecision(policy: .redactedScreenshot, category: .video, reason: "Browser video page stores redacted screenshots", isSensitive: false)
+                Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+                return decision
             }
 
             if isSocial(title: title, appName: appName) {
-                return PrivacyDecision(policy: .redactedScreenshot, category: .socialMedia, reason: "Browser social page stores redacted screenshots", isSensitive: false)
+                decision = PrivacyDecision(policy: .redactedScreenshot, category: .socialMedia, reason: "Browser social page stores redacted screenshots", isSensitive: false)
+                Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+                return decision
             }
 
             let category = classifyBrowserCategory(title: title)
-            return PrivacyDecision(policy: .redactedScreenshot, category: category, reason: "Browser context stores redacted screenshots by default", isSensitive: false)
+            decision = PrivacyDecision(policy: .redactedScreenshot, category: category, reason: "Browser context stores redacted screenshots by default", isSensitive: false)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         if isPasswordManager(bundleIdentifier: bundleIdentifier, appName: appName) {
-            return PrivacyDecision(policy: .noCapture, category: .productivity, reason: "Password manager detected", isSensitive: true)
+            decision = PrivacyDecision(policy: .noCapture, category: .productivity, reason: "Password manager detected", isSensitive: true)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         if isPrivateWindow(title: title) {
-            return PrivacyDecision(policy: .noCapture, category: .browsing, reason: "Private or incognito window detected", isSensitive: true)
+            decision = PrivacyDecision(policy: .noCapture, category: .browsing, reason: "Private or incognito window detected", isSensitive: true)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         if isPaymentOrBanking(title: title, appName: appName, settings: settings) {
-            return PrivacyDecision(policy: .noCapture, category: .payment, reason: "Payment or banking context detected", isSensitive: true)
+            decision = PrivacyDecision(policy: .noCapture, category: .payment, reason: "Payment or banking context detected", isSensitive: true)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         if isCodeEditor(bundleIdentifier: bundleIdentifier, appName: appName) {
-            return PrivacyDecision(policy: .metadataOnly, category: .coding, reason: "Code editor is metadata-only", isSensitive: false)
+            decision = PrivacyDecision(policy: .metadataOnly, category: .coding, reason: "Code editor is metadata-only", isSensitive: false)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         if isTerminal(bundleIdentifier: bundleIdentifier, appName: appName) {
-            return PrivacyDecision(policy: .metadataOnly, category: .coding, reason: "Terminal is metadata-only", isSensitive: false)
+            decision = PrivacyDecision(policy: .metadataOnly, category: .coding, reason: "Terminal is metadata-only", isSensitive: false)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         if isEmail(title: title, appName: appName) {
-            return PrivacyDecision(policy: .metadataOnly, category: .email, reason: "Email context is metadata-only", isSensitive: false)
+            decision = PrivacyDecision(policy: .metadataOnly, category: .email, reason: "Email context is metadata-only", isSensitive: false)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         if isPrivateMessaging(bundleIdentifier: bundleIdentifier, appName: appName) {
-            return PrivacyDecision(policy: .metadataOnly, category: .messaging, reason: "Messaging context is metadata-only", isSensitive: false)
+            decision = PrivacyDecision(policy: .metadataOnly, category: .messaging, reason: "Messaging context is metadata-only", isSensitive: false)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         if isVideo(title: title, appName: appName) {
-            return PrivacyDecision(policy: .redactedScreenshot, category: .video, reason: "Video content allows redacted screenshots", isSensitive: false)
+            decision = PrivacyDecision(policy: .redactedScreenshot, category: .video, reason: "Video content allows redacted screenshots", isSensitive: false)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         if isSocial(title: title, appName: appName) {
-            return PrivacyDecision(policy: .redactedScreenshot, category: .socialMedia, reason: "Social content allows redacted screenshots", isSensitive: false)
+            decision = PrivacyDecision(policy: .redactedScreenshot, category: .socialMedia, reason: "Social content allows redacted screenshots", isSensitive: false)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         if settings.allowedNormalScreenshotApps.contains(where: { appName.contains($0.lowercased()) }) {
-            return PrivacyDecision(policy: .normalScreenshot, category: .productivity, reason: "User allowlisted normal screenshots for this app", isSensitive: false)
+            decision = PrivacyDecision(policy: .normalScreenshot, category: .productivity, reason: "User allowlisted normal screenshots for this app", isSensitive: false)
+            Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+            return decision
         }
 
         let category = classifyDefaultCategory(title: title, appName: appName)
-        return PrivacyDecision(policy: .redactedScreenshot, category: category, reason: "Default to redacted screenshots", isSensitive: false)
+        decision = PrivacyDecision(policy: .redactedScreenshot, category: category, reason: "Default to redacted screenshots", isSensitive: false)
+        Logger.log("Privacy", "Decision for \(metadata.activeAppName): \(decision.policy.rawValue) reason=\(decision.reason)")
+        return decision
     }
 
     private func classifyDefaultCategory(title: String, appName: String) -> ActivityCategory {

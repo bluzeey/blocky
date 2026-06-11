@@ -28,7 +28,9 @@ actor CaptureCoordinator {
         settings: AppSettings,
         permissionSnapshot: PermissionSnapshot
     ) async -> CaptureProcessingResult {
+        Logger.log("Capture", "Processing context for app=\(metadata.activeAppName) policy=\(privacyDecision.policy.rawValue) alignment=\(alignment.rawValue)")
         if privacyDecision.policy == .noCapture {
+            Logger.log("Capture", "Skipping capture because policy is noCapture")
             return CaptureProcessingResult(
                 previewData: nil,
                 safeSummary: "Sensitive context blocked before any screenshot was captured.",
@@ -38,6 +40,7 @@ actor CaptureCoordinator {
         }
 
         if privacyDecision.policy == .metadataOnly {
+            Logger.log("Capture", "Skipping capture because policy is metadataOnly")
             return CaptureProcessingResult(
                 previewData: nil,
                 safeSummary: "User is in \(metadata.activeAppName). Content was not visually captured.",
@@ -47,6 +50,7 @@ actor CaptureCoordinator {
         }
 
         guard permissionSnapshot.screenRecordingGranted else {
+            Logger.log("Capture", "Skipping capture because Screen Recording permission is missing")
             return CaptureProcessingResult(
                 previewData: nil,
                 safeSummary: "Visual capture skipped because Screen Recording permission is missing.",
@@ -58,6 +62,7 @@ actor CaptureCoordinator {
         let fingerprint = [metadata.activeAppName, metadata.windowTitle ?? ""].joined(separator: "::")
         let shouldCapture = shouldCaptureVisualContext(fingerprint: fingerprint, now: Date(), settings: settings)
         if !shouldCapture {
+            Logger.log("Capture", "Skipping capture because fingerprint was recently captured")
             return CaptureProcessingResult(
                 previewData: nil,
                 safeSummary: "Visual capture unchanged recently. Using metadata summary for this context item.",
@@ -68,11 +73,13 @@ actor CaptureCoordinator {
 
         do {
             let capturedFrame = try await screenCaptureService.captureActiveWindow(metadata: metadata)
+            Logger.log("Capture", "Captured frame from \(capturedFrame.capturedDisplayName)")
 
             if privacyDecision.policy == .normalScreenshot {
                 lastCaptureFingerprint = fingerprint
                 lastCaptureDate = Date()
                 let previewData = NSBitmapImageRep(cgImage: capturedFrame.cgImage).representation(using: .jpeg, properties: [.compressionFactor: 0.9])
+                Logger.log("Capture", "Stored low-risk screenshot preview without extra redaction")
 
                 return CaptureProcessingResult(
                     previewData: previewData,
@@ -85,6 +92,7 @@ actor CaptureCoordinator {
             let redactionResult = try await ocrRedactor.redact(cgImage: capturedFrame.cgImage, metadata: metadata, decision: privacyDecision)
             lastCaptureFingerprint = fingerprint
             lastCaptureDate = Date()
+            Logger.log("Capture", "Redaction completed. discarded=\(redactionResult.discardedReason != nil) reasons=\(redactionResult.redactionReasons.joined(separator: ", "))")
 
             return CaptureProcessingResult(
                 previewData: redactionResult.redactedPreviewData,
@@ -133,6 +141,8 @@ private struct ScreenCaptureService: Sendable {
         let configuration = SCStreamConfiguration()
         configuration.width = max(1280, Int(targetDisplay.width))
         configuration.height = max(900, Int(targetDisplay.height))
+
+        Logger.log("Capture", "Capturing display \(targetDisplay.displayID) for app=\(metadata.activeAppName)")
 
         let displayImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
         let croppedImage = cropWindowImage(from: displayImage, displayFrame: targetDisplay.frame, metadata: metadata) ?? displayImage

@@ -20,6 +20,7 @@ struct AIClient {
         libraryStore: CaptureLibraryStore,
         settings: AppSettings
     ) async throws -> AIReviewResponse {
+        Logger.log("AI", "Starting AI review for session=\(payload.sessionID.uuidString) records=\(records.count) model=\(settings.umansModelName)")
         guard !settings.umansAPIKey.isEmpty else {
             throw NSError(domain: "AIClient", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing Umans API key"])
         }
@@ -88,6 +89,7 @@ struct AIClient {
 
         guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
             let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error body"
+            Logger.log("AI", "AI review failed with non-2xx response: \(errorBody)")
             throw NSError(domain: "AIClient", code: 2, userInfo: [NSLocalizedDescriptionKey: "AI review failed: \(errorBody)"])
         }
 
@@ -95,8 +97,9 @@ struct AIClient {
         let rawContent = decodedResponse.choices.first?.message.content ?? "{}"
         let jsonSubstring = extractJSONObject(from: rawContent) ?? rawContent
         let responseData = Data(jsonSubstring.utf8)
-
-        return try JSONDecoder().decode(AIReviewResponse.self, from: responseData)
+        let reviewResponse = try JSONDecoder().decode(AIReviewResponse.self, from: responseData)
+        Logger.log("AI", "AI review completed with alignment=\(reviewResponse.alignment.rawValue) action=\(reviewResponse.suggestedAction)")
+        return reviewResponse
     }
 
     private func extractJSONObject(from text: String) -> String? {
