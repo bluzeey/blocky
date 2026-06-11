@@ -47,8 +47,8 @@ struct MenuBarRootView: View {
                     }
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 2)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(.white.opacity(0.05))
@@ -164,14 +164,9 @@ private struct PermissionCardRow: View {
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Text(granted ? "Granted" : "Needed")
-                    .font(.caption)
-                    .foregroundStyle(granted ? .green : .orange)
-            }
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(.medium)
 
             Spacer()
 
@@ -186,9 +181,9 @@ private struct PermissionCardRow: View {
 
             if !granted {
                 Button("Grant", action: action)
-                    .font(.caption)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
+                    .font(.caption2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .background(
                         Capsule(style: .continuous)
                             .fill(.white.opacity(0.08))
@@ -196,6 +191,6 @@ private struct PermissionCardRow: View {
                     .pointerCursor()
             }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
     }
 }
