@@ -14,9 +14,6 @@ struct MenuBarRootView: View {
         }
         .padding(16)
         .frame(width: 380)
-        .task {
-            await appState.startIfNeeded()
-        }
     }
 
     private var headerSection: some View {

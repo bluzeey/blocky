@@ -6,15 +6,15 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Umans") {
-                SecureField("API Key", text: $draftSettings.umansAPIKey)
-                TextField("Base URL", text: $draftSettings.umansBaseURLString)
-                Picker("Model", selection: $draftSettings.umansModelName) {
-                    Text("umans-coder").tag("umans-coder")
-                    Text("umans-kimi-k2.6").tag("umans-kimi-k2.6")
-                    Text("umans-glm-5.1").tag("umans-glm-5.1")
-                    Text("umans-flash").tag("umans-flash")
+            Section("AI") {
+                Picker("Provider", selection: $draftSettings.aiProvider) {
+                    ForEach(AIProviderPreset.allCases) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
                 }
+                SecureField("API Key", text: $draftSettings.aiAPIKey)
+                TextField("Base URL", text: $draftSettings.aiBaseURLString)
+                TextField("Model", text: $draftSettings.aiModelName)
             }
 
             Section("Intervals") {
@@ -67,6 +67,14 @@ struct SettingsView: View {
         .padding()
         .onAppear {
             draftSettings = appState.settings
+        }
+        .onChange(of: draftSettings.aiProvider) { oldValue, newValue in
+            if draftSettings.aiBaseURLString == oldValue.defaultBaseURLString || draftSettings.aiBaseURLString.isEmpty {
+                draftSettings.aiBaseURLString = newValue.defaultBaseURLString
+            }
+            if draftSettings.aiModelName == oldValue.defaultModelName || draftSettings.aiModelName.isEmpty {
+                draftSettings.aiModelName = newValue.defaultModelName
+            }
         }
     }
 }

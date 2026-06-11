@@ -1,4 +1,5 @@
 import Combine
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -33,6 +34,7 @@ final class AppState: ObservableObject {
     private var trackingTask: Task<Void, Never>?
     private var aiReviewTask: Task<Void, Never>?
     private var lastAIReviewDate: Date?
+    private var lifecycleCancellables = Set<AnyCancellable>()
 
     init() {
         Logger.bootstrap()
@@ -48,7 +50,11 @@ final class AppState: ObservableObject {
         self.captureCoordinator = CaptureCoordinator()
         self.notificationManager = notificationManager
         self.nudgeService = NudgeService(notificationManager: notificationManager)
+        observeApplicationLifecycle()
         Logger.log("AppState", "Initialized AppState")
+        Task { [weak self] in
+            await self?.startIfNeeded()
+        }
     }
 
     func refreshSettings() {
@@ -82,7 +88,7 @@ final class AppState: ObservableObject {
         aiReviewTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
-                if let activeSession = self.activeSession, !activeSession.isPaused, !self.settings.umansAPIKey.isEmpty {
+                if let activeSession = self.activeSession, !activeSession.isPaused, self.settings.hasAIConfiguration {
                     await self.performAIReviewIfNeeded(session: activeSession)
                 }
                 try? await Task.sleep(nanoseconds: 15 * 1_000_000_000)
@@ -126,10 +132,16 @@ final class AppState: ObservableObject {
 
     func requestAccessibilityPermission() {
         _ = permissionManager.requestAccessibilityPermission()
+        Task { [weak self] in
+            await self?.refreshPermissions()
+        }
     }
 
     func requestScreenRecordingPermission() {
         _ = permissionManager.requestScreenRecordingPermission()
+        Task { [weak self] in
+            await self?.refreshPermissions()
+        }
     }
 
     func requestNotificationPermission() async {
@@ -308,6 +320,16 @@ final class AppState: ObservableObject {
             aiStatusMessage = "AI review failed: \(error.localizedDescription)"
             Logger.log("AI", "AI review failed: \(error.localizedDescription)")
         }
+    }
+
+    private func observeApplicationLifecycle() {
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    await self?.refreshPermissions()
+                }
+            }
+            .store(in: &lifecycleCancellables)
     }
 }
 

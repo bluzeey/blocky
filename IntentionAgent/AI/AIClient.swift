@@ -20,17 +20,20 @@ struct AIClient {
         libraryStore: CaptureLibraryStore,
         settings: AppSettings
     ) async throws -> AIReviewResponse {
-        Logger.log("AI", "Starting AI review for session=\(payload.sessionID.uuidString) records=\(records.count) model=\(settings.umansModelName)")
-        guard !settings.umansAPIKey.isEmpty else {
-            throw NSError(domain: "AIClient", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing Umans API key"])
+        Logger.log("AI", "Starting AI review for session=\(payload.sessionID.uuidString) records=\(records.count) provider=\(settings.aiProvider.rawValue) model=\(settings.aiModelName)")
+        guard settings.hasAIConfiguration else {
+            throw NSError(domain: "AIClient", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing AI provider API key"])
         }
 
-        let url = URL(string: settings.umansBaseURLString)!
+        guard let url = URL(string: settings.aiBaseURLString) else {
+            throw NSError(domain: "AIClient", code: 3, userInfo: [NSLocalizedDescriptionKey: "Invalid AI base URL"])
+        }
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 120
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(settings.umansAPIKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(settings.aiAPIKey)", forHTTPHeaderField: "Authorization")
 
         let payloadJSONData = try JSONEncoder().encode(payload)
         let payloadJSONString = String(data: payloadJSONData, encoding: .utf8) ?? "{}"
@@ -65,7 +68,7 @@ struct AIClient {
         }
 
         let requestBody: [String: Any] = [
-            "model": settings.umansModelName,
+            "model": settings.aiModelName,
             "stream": false,
             "messages": [
                 [
