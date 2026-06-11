@@ -6,11 +6,21 @@ final class IntentionPanelController {
     private var panel: NSPanel?
 
     func show(appState: AppState) {
-        if panel?.isVisible == true { return }
+        if let panel, panel.isVisible { return }
+
+        NSApp.activate(ignoringOtherApps: true)
 
         let contentView = IntentionModalView(appState: appState)
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.frame = CGRect(x: 0, y: 0, width: 380, height: 360)
+
+        if let existingPanel = panel {
+            existingPanel.contentView = hostingView
+            existingPanel.center()
+            existingPanel.makeKeyAndOrderFront(nil)
+            Logger.log("IntentionModal", "Re-showing existing intention modal panel")
+            return
+        }
 
         let newPanel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 380, height: 360),
@@ -19,7 +29,7 @@ final class IntentionPanelController {
             defer: false
         )
         newPanel.isFloatingPanel = true
-        newPanel.level = .floating
+        newPanel.level = .popUpMenu
         newPanel.titleVisibility = .hidden
         newPanel.titlebarAppearsTransparent = true
         newPanel.isMovableByWindowBackground = true
@@ -27,17 +37,12 @@ final class IntentionPanelController {
         newPanel.becomesKeyOnlyIfNeeded = false
         newPanel.isReleasedWhenClosed = false
         newPanel.hasShadow = true
-
-        let screenRect = NSScreen.main!.visibleFrame
-        let panelWidth = newPanel.frame.width
-        let panelHeight = newPanel.frame.height
-        let originX = screenRect.midX - panelWidth / 2
-        let originY = screenRect.midY - panelHeight / 2
-        newPanel.setFrameOrigin(NSPoint(x: originX, y: originY))
+        newPanel.hidesOnDeactivate = false
+        newPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        newPanel.center()
 
         panel = newPanel
         newPanel.makeKeyAndOrderFront(nil)
-        NSApplication.shared.activate(ignoringOtherApps: true)
         Logger.log("IntentionModal", "Showing intention modal panel")
     }
 

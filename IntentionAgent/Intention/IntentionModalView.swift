@@ -82,5 +82,12 @@ struct IntentionModalView: View {
         }
         .padding(28)
         .frame(width: 380)
+        .onAppear {
+            title = ""
+            durationMinutes = 30
+            allowedAppsText = ""
+            blockedAppsText = ""
+            showingDetails = false
+        }
     }
 }

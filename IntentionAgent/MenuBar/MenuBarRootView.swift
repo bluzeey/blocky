@@ -88,6 +88,12 @@ struct MenuBarRootView: View {
                 }
                 .font(.caption2)
                 .pointerCursor()
+
+                Button("New Intention") {
+                    appState.showIntentionModal()
+                }
+                .font(.caption2)
+                .pointerCursor()
             } else {
                 Button("New Intention") {
                     appState.showIntentionModal()

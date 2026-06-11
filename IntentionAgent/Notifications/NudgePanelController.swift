@@ -9,6 +9,8 @@ final class NudgePanelController {
     func show(appState: AppState, sessionTitle: String, message: String) {
         hide()
 
+        NSApp.activate(ignoringOtherApps: true)
+
         let contentView = NudgePopupView(appState: appState, sessionTitle: sessionTitle, message: message)
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.frame = CGRect(x: 0, y: 0, width: 300, height: 160)
@@ -20,7 +22,7 @@ final class NudgePanelController {
             defer: false
         )
         newPanel.isFloatingPanel = true
-        newPanel.level = .floating
+        newPanel.level = .popUpMenu
         newPanel.titleVisibility = .hidden
         newPanel.titlebarAppearsTransparent = true
         newPanel.isMovableByWindowBackground = true
@@ -28,17 +30,12 @@ final class NudgePanelController {
         newPanel.becomesKeyOnlyIfNeeded = false
         newPanel.isReleasedWhenClosed = false
         newPanel.hasShadow = true
-
-        let screenRect = NSScreen.main!.visibleFrame
-        let panelWidth = newPanel.frame.width
-        let panelHeight = newPanel.frame.height
-        let originX = screenRect.midX - panelWidth / 2
-        let originY = screenRect.midY - panelHeight / 2
-        newPanel.setFrameOrigin(NSPoint(x: originX, y: originY))
+        newPanel.hidesOnDeactivate = false
+        newPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        newPanel.center()
 
         panel = newPanel
         newPanel.makeKeyAndOrderFront(nil)
-        NSApplication.shared.activate(ignoringOtherApps: true)
         Logger.log("NudgePopup", "Showing nudge popup")
 
         autoDismissTask?.cancel()
