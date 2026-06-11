@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct MenuBarRootView: View {
@@ -31,17 +32,31 @@ struct MenuBarRootView: View {
             Text("Permissions")
                 .font(.headline)
 
-            PermissionRow(label: "Accessibility", granted: appState.permissionSnapshot.accessibilityGranted) {
-                appState.requestAccessibilityPermission()
-            }
-            PermissionRow(label: "Screen Recording", granted: appState.permissionSnapshot.screenRecordingGranted) {
-                appState.requestScreenRecordingPermission()
-            }
-            PermissionRow(label: "Notifications", granted: appState.permissionSnapshot.notificationsGranted) {
-                Task {
-                    await appState.requestNotificationPermission()
+            VStack(spacing: 0) {
+                PermissionCardRow(label: "Accessibility", granted: appState.permissionSnapshot.accessibilityGranted) {
+                    appState.requestAccessibilityPermission()
+                }
+                Divider()
+                PermissionCardRow(label: "Screen Recording", granted: appState.permissionSnapshot.screenRecordingGranted) {
+                    appState.requestScreenRecordingPermission()
+                }
+                Divider()
+                PermissionCardRow(label: "Notifications", granted: appState.permissionSnapshot.notificationsGranted) {
+                    Task {
+                        await appState.requestNotificationPermission()
+                    }
                 }
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.white.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(.white.opacity(0.08), lineWidth: 1)
+            )
         }
     }
 
@@ -99,21 +114,31 @@ struct MenuBarRootView: View {
     }
 
     private var actionsSection: some View {
-        HStack {
-            Button("Allow 5 Min") {
-                appState.allowDriftForFiveMinutes()
-            }
-            .disabled(appState.activeSession == nil)
-            .pointerCursor()
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Button("Allow 5 Min") {
+                    appState.allowDriftForFiveMinutes()
+                }
+                .disabled(appState.activeSession == nil)
+                .pointerCursor()
 
-            Button("Capture Library") {
-                openWindow(id: "capture-library")
-            }
-            .pointerCursor()
+                Button("Capture Library") {
+                    openWindow(id: "capture-library")
+                }
+                .pointerCursor()
 
-            Button("Settings") {
-                openWindow(id: "settings")
+                Button("Settings") {
+                    openWindow(id: "settings")
+                }
+                .pointerCursor()
             }
+
+            Divider()
+
+            Button("Quit Blocky") {
+                NSApplication.shared.terminate(nil)
+            }
+            .foregroundStyle(.secondary)
             .pointerCursor()
         }
     }
@@ -132,21 +157,45 @@ struct MenuBarRootView: View {
     }
 }
 
-private struct PermissionRow: View {
+private struct PermissionCardRow: View {
     let label: String
     let granted: Bool
     let action: () -> Void
 
     var body: some View {
         HStack {
-            Text(label)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text(granted ? "Granted" : "Needed")
+                    .font(.caption)
+                    .foregroundStyle(granted ? .green : .orange)
+            }
+
             Spacer()
-            Text(granted ? "Granted" : "Needed")
-                .foregroundStyle(granted ? .green : .orange)
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(granted ? Color.green : Color.orange)
+                    .frame(width: 8, height: 8)
+                Text(granted ? "Granted" : "Needed")
+                    .font(.caption)
+                    .foregroundStyle(granted ? .green : .orange)
+            }
+
             if !granted {
                 Button("Grant", action: action)
+                    .font(.caption)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(.white.opacity(0.08))
+                    )
                     .pointerCursor()
             }
         }
+        .padding(.vertical, 10)
     }
 }
