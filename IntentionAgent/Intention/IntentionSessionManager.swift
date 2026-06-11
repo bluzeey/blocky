@@ -98,6 +98,6 @@ final class IntentionSessionManager {
             return .neutral
         }
 
-        return .unknown
+        return .neutral
     }
 }

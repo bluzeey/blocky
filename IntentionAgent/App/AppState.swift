@@ -33,7 +33,9 @@ final class AppState: ObservableObject {
 
     private var trackingTask: Task<Void, Never>?
     private var aiReviewTask: Task<Void, Never>?
+    private var nudgeTimerTask: Task<Void, Never>?
     private var lastAIReviewDate: Date?
+    private var lastNudgeShownDate: Date?
     private var lifecycleCancellables = Set<AnyCancellable>()
     private let intentionPanelController = IntentionPanelController()
     private let nudgePanelController = NudgePanelController()
@@ -105,6 +107,18 @@ final class AppState: ObservableObject {
                 try? await Task.sleep(nanoseconds: 2 * 60 * 1_000_000_000)
             }
         }
+
+        nudgeTimerTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(max(60, self.settings.aiReviewIntervalSeconds)) * 1_000_000_000)
+                guard let activeSession = self.activeSession, !activeSession.isPaused else { continue }
+                if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 { continue }
+                Logger.log("Nudge", "Periodic nudge timer fired")
+                self.lastNudgeShownDate = Date()
+                self.showNudgePopup(sessionTitle: activeSession.title, message: "Are you still on track?")
+            }
+        }
     }
 
     func saveSettings(_ settings: AppSettings) {
@@ -152,6 +166,7 @@ final class AppState: ObservableObject {
     }
 
     func showNudgePopup(sessionTitle: String, message: String) {
+        lastNudgeShownDate = Date()
         nudgePanelController.show(appState: self, sessionTitle: sessionTitle, message: message)
     }
 

@@ -40,12 +40,6 @@ struct MenuBarRootView: View {
                 PermissionCardRow(label: "Screen Recording", granted: appState.permissionSnapshot.screenRecordingGranted) {
                     appState.requestScreenRecordingPermission()
                 }
-                Divider()
-                PermissionCardRow(label: "Notifications", granted: appState.permissionSnapshot.notificationsGranted) {
-                    Task {
-                        await appState.requestNotificationPermission()
-                    }
-                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 2)
