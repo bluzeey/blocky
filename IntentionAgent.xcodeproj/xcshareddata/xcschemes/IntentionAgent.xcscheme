@@ -11,7 +11,7 @@
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent
                title = "Sign IntentionAgent"
-               scriptText = "set -euo pipefail&#10;APP_PATH=&quot;${TARGET_BUILD_DIR}/${WRAPPER_NAME}&quot;&#10;IDENTITY=$(/usr/bin/security find-identity -v -p codesigning | /usr/bin/grep &apos;Apple Development:&apos; | /usr/bin/head -n 1 | /usr/bin/sed -E &apos;s/.*&quot;([^&quot;]+)&quot;.*/\1/&apos;)&#10;if [ -z &quot;${IDENTITY}&quot; ]; then&#10;  echo &quot;No Apple Development identity found for post-build signing&quot; &gt;&amp;2&#10;  exit 1&#10;fi&#10;/usr/bin/codesign --force --deep --sign &quot;${IDENTITY}&quot; --timestamp=none --options runtime &quot;${APP_PATH}&quot;&#10;">
+               scriptText = "set -euo pipefail&#10;APP_PATH=&quot;${TARGET_BUILD_DIR}/${WRAPPER_NAME}&quot;&#10;ENTITLEMENTS_PATH=&quot;${PROJECT_DIR}/IntentionAgent/IntentionAgent.entitlements&quot;&#10;IDENTITY=$(/usr/bin/security find-identity -v -p codesigning | /usr/bin/grep &apos;Apple Development:&apos; | /usr/bin/head -n 1 | /usr/bin/sed -E &apos;s/.*&quot;([^&quot;]+)&quot;.*/\1/&apos;)&#10;if [ -z &quot;${IDENTITY}&quot; ]; then&#10;  echo &quot;No Apple Development identity found for post-build signing&quot; &gt;&amp;2&#10;  exit 1&#10;fi&#10;/usr/bin/codesign --force --deep --sign &quot;${IDENTITY}&quot; --entitlements &quot;${ENTITLEMENTS_PATH}&quot; --timestamp=none &quot;${APP_PATH}&quot;&#10;">
                <EnvironmentBuildable>
                   <BuildableReference
                      BuildableIdentifier = "primary"
@@ -68,6 +68,13 @@
             ReferencedContainer = "container:IntentionAgent.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "IDEPreferLogStreaming"
+            value = "YES"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
