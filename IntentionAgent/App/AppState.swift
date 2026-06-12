@@ -179,6 +179,15 @@ final class AppState: ObservableObject {
             }
             performEndSession()
         case .continueLater:
+            if !session.isTaskBacked && session.source == .intention {
+                let remainingSeconds = max(0, Int(sessionManager.effectiveEndDate(for: session).timeIntervalSinceNow))
+                let remainingMinutes = max(5, ((remainingSeconds / 60) + 2) / 5 * 5)
+                taskStore.addTask(
+                    title: session.title,
+                    durationMinutes: remainingMinutes,
+                    listType: .daily
+                )
+            }
             performEndSession()
         case .cancel:
             pendingEndAction = nil
