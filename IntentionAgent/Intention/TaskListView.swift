@@ -11,10 +11,10 @@ struct TaskListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text(listTitle)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                HStack {
+                    Text(listTitle)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
                 Spacer()
                 Button(action: onAddTask) {
                     HStack(spacing: 4) {
@@ -79,6 +79,7 @@ struct TaskListView: View {
                 }
             }
         }
+        .frame(maxHeight: 240)
     }
 }
 

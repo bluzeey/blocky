@@ -50,6 +50,7 @@ struct IntentionModalView: View {
                 .padding(.bottom, 16)
 
             tabContent
+                .frame(maxHeight: .infinity)
                 .padding(.bottom, 16)
 
             durationSection
@@ -58,7 +59,9 @@ struct IntentionModalView: View {
             actionButtons
         }
         .padding(28)
-        .frame(width: 440)
+        .frame(width: 440, height: 520)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .onAppear {
             intentionText = ""
             durationMinutes = 30
@@ -206,7 +209,7 @@ struct IntentionModalView: View {
 
     private var explorationContent: some View {
         VStack(spacing: 12) {
-            Image(systemName: "compass")
+            Image(systemName: "globe")
                 .font(.system(size: 28))
                 .foregroundStyle(.blue.opacity(0.6))
 
@@ -251,7 +254,6 @@ struct IntentionModalView: View {
             Button("Cancel") {
                 appState.hideIntentionModal()
             }
-            .keyboardShortcut(.cancelAction)
             .pointerCursor()
 
             Spacer()

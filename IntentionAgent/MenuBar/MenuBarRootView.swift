@@ -92,7 +92,7 @@ struct MenuBarRootView: View {
                 }
 
                 Button("New Intention") {
-                    appState.showIntentionModal()
+                    appState.requestNewIntention()
                 }
                 .font(.caption2)
                 .pointerCursor()

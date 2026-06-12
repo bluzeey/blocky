@@ -43,8 +43,7 @@ final class IntentionSessionManager {
 
     func pause(_ session: IntentionSession) -> IntentionSession {
         guard session.pauseStartedAt == nil else { return session }
-        var pausedSession = session
-        pausedSession = IntentionSession(
+        return IntentionSession(
             id: session.id,
             title: session.title,
             startedAt: session.startedAt,
@@ -55,9 +54,10 @@ final class IntentionSessionManager {
             blockedCategories: session.blockedCategories,
             aiReviewIntervalSeconds: session.aiReviewIntervalSeconds,
             pauseStartedAt: Date(),
-            totalPausedSeconds: session.totalPausedSeconds
+            totalPausedSeconds: session.totalPausedSeconds,
+            source: session.source,
+            taskId: session.taskId
         )
-        return pausedSession
     }
 
     func resume(_ session: IntentionSession) -> IntentionSession {
@@ -74,7 +74,9 @@ final class IntentionSessionManager {
             blockedCategories: session.blockedCategories,
             aiReviewIntervalSeconds: session.aiReviewIntervalSeconds,
             pauseStartedAt: nil,
-            totalPausedSeconds: session.totalPausedSeconds + additionalPausedSeconds
+            totalPausedSeconds: session.totalPausedSeconds + additionalPausedSeconds,
+            source: session.source,
+            taskId: session.taskId
         )
     }
 

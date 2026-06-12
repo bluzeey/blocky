@@ -1,19 +1,14 @@
 import AppKit
 import SwiftUI
 
-private final class BlockingPanel: NSPanel {
+private final class ResolutionBlockingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
-
-    override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { return }
-        super.keyDown(with: event)
-    }
-
+    override func keyDown(with event: NSEvent) {}
     override func cancelOperation(_ sender: Any?) {}
 }
 
-private final class BackdropWindow: NSWindow {
+private final class ResolutionBackdropWindow: NSWindow {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
     override func mouseDown(with event: NSEvent) {}
@@ -22,20 +17,21 @@ private final class BackdropWindow: NSWindow {
 }
 
 @MainActor
-final class IntentionPanelController {
-    private var panel: BlockingPanel?
-    private var backdrop: BackdropWindow?
-    private var deactivationObserver: NSObjectProtocol?
+final class TaskResolutionPanelController {
+    private var panel: ResolutionBlockingPanel?
+    private var backdrop: ResolutionBackdropWindow?
     private var screenChangeObserver: NSObjectProtocol?
 
-    func show(appState: AppState) {
+    func show(appState: AppState, taskTitle: String) {
         if let panel, panel.isVisible { return }
 
         NSApp.activate(ignoringOtherApps: true)
 
-        let panelRect = NSRect(x: 0, y: 0, width: 440, height: 520)
+        let panelRect = NSRect(x: 0, y: 0, width: 360, height: 280)
 
-        let contentView = IntentionModalView(appState: appState)
+        let contentView = TaskResolutionView(taskTitle: taskTitle) { resolution in
+            appState.resolveTask(resolution)
+        }
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.frame = panelRect
 
@@ -44,12 +40,11 @@ final class IntentionPanelController {
             showBackdrop()
             existingPanel.center()
             existingPanel.makeKeyAndOrderFront(nil)
-            setupDeactivationObserver()
-            Logger.log("IntentionModal", "Re-showing existing intention modal panel")
+            Logger.log("TaskResolution", "Re-showing existing task resolution panel")
             return
         }
 
-        let newPanel = BlockingPanel(
+        let newPanel = ResolutionBlockingPanel(
             contentRect: panelRect,
             styleMask: [.titled, .fullSizeContentView],
             backing: .buffered,
@@ -71,18 +66,16 @@ final class IntentionPanelController {
         panel = newPanel
         showBackdrop()
         newPanel.makeKeyAndOrderFront(nil)
-        setupDeactivationObserver()
         setupScreenChangeObserver()
-        Logger.log("IntentionModal", "Showing intention modal panel")
+        Logger.log("TaskResolution", "Showing task resolution panel")
     }
 
     func hide() {
-        removeDeactivationObserver()
         removeScreenChangeObserver()
         backdrop?.orderOut(nil)
         backdrop = nil
         panel?.orderOut(nil)
-        Logger.log("IntentionModal", "Hid intention modal panel")
+        Logger.log("TaskResolution", "Hid task resolution panel")
     }
 
     private func showBackdrop() {
@@ -93,7 +86,7 @@ final class IntentionPanelController {
         }
 
         guard let screen = NSScreen.main else { return }
-        let backdropWindow = BackdropWindow(
+        let backdropWindow = ResolutionBackdropWindow(
             contentRect: screen.frame,
             styleMask: .borderless,
             backing: .buffered,
@@ -110,31 +103,9 @@ final class IntentionPanelController {
         backdropWindow.orderFront(nil)
     }
 
-    private func updateBackdropFrame(_ backdropWindow: BackdropWindow) {
+    private func updateBackdropFrame(_ backdropWindow: ResolutionBackdropWindow) {
         guard let screen = NSScreen.main else { return }
         backdropWindow.setFrame(screen.frame, display: true)
-    }
-
-    private func setupDeactivationObserver() {
-        removeDeactivationObserver()
-        deactivationObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSApplication.didResignActiveNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self, let panel = self.panel, panel.isVisible else { return }
-                NSApp.activate(ignoringOtherApps: true)
-                panel.makeKeyAndOrderFront(nil)
-            }
-        }
-    }
-
-    private func removeDeactivationObserver() {
-        if let observer = deactivationObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(observer)
-            deactivationObserver = nil
-        }
     }
 
     private func setupScreenChangeObserver() {

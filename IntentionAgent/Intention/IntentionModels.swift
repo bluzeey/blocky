@@ -12,9 +12,15 @@ struct IntentionSession: Codable, Identifiable, Equatable {
     let aiReviewIntervalSeconds: Int
     var pauseStartedAt: Date?
     var totalPausedSeconds: Int
+    let source: SessionSource
+    let taskId: UUID?
 
     var isPaused: Bool {
         pauseStartedAt != nil
+    }
+
+    var isTaskBacked: Bool {
+        taskId != nil
     }
 }
 
@@ -47,7 +53,9 @@ extension SessionDraft {
             blockedCategories: blockedCategories.sorted { $0.rawValue < $1.rawValue },
             aiReviewIntervalSeconds: reviewIntervalSeconds,
             pauseStartedAt: nil,
-            totalPausedSeconds: 0
+            totalPausedSeconds: 0,
+            source: source,
+            taskId: taskId
         )
     }
 }

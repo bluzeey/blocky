@@ -1,7 +1,12 @@
-import Combine
 import AppKit
+import Combine
 import Foundation
 import SwiftUI
+
+enum TaskResolutionPendingAction: Equatable {
+    case endSession
+    case showIntentionModal
+}
 
 @MainActor
 final class AppState: ObservableObject {
@@ -45,6 +50,8 @@ final class AppState: ObservableObject {
     private var aiValidatedAppTitle: String?
     private let intentionPanelController = IntentionPanelController()
     private let nudgePanelController = NudgePanelController()
+    private let taskResolutionPanelController = TaskResolutionPanelController()
+    private var pendingEndAction: TaskResolutionPendingAction?
 
     init() {
         let settingsStore = AppSettingsStore()
@@ -130,10 +137,6 @@ final class AppState: ObservableObject {
         lastAIReviewDate = nil
         recentEvents.removeAll()
 
-        if let taskId = sessionDraft.taskId {
-            taskStore.markCompleted(id: taskId)
-        }
-
         hideIntentionModal()
         Logger.log("Session", "Started session id=\(session.id.uuidString) title=\(session.title) source=\(sessionDraft.source.rawValue) exploration=\(isExplorationMode)")
     }
@@ -145,13 +148,64 @@ final class AppState: ObservableObject {
     }
 
     func endSession() {
+        guard let session = activeSession, session.isTaskBacked else {
+            performEndSession()
+            return
+        }
+        pendingEndAction = .endSession
+        nudgePanelController.hide()
+        hideIntentionModal()
+        taskResolutionPanelController.show(appState: self, taskTitle: session.title)
+    }
+
+    func requestNewIntention() {
+        guard let session = activeSession, session.isTaskBacked else {
+            showIntentionModal()
+            return
+        }
+        pendingEndAction = .showIntentionModal
+        nudgePanelController.hide()
+        hideIntentionModal()
+        taskResolutionPanelController.show(appState: self, taskTitle: session.title)
+    }
+
+    func resolveTask(_ resolution: TaskResolution) {
+        taskResolutionPanelController.hide()
+
+        guard let session = activeSession, session.isTaskBacked else {
+            pendingEndAction = nil
+            return
+        }
+
+        switch resolution {
+        case .completed:
+            taskStore.markCompleted(id: session.taskId!)
+            performEndSession()
+        case .continueLater:
+            performEndSession()
+        case .cancel:
+            pendingEndAction = nil
+            return
+        }
+    }
+
+    private func performEndSession() {
         Logger.log("Session", "Ended session id=\(activeSession?.id.uuidString ?? "nil")")
         activeSession = nil
         isExplorationMode = false
         driftSnoozeUntil = nil
         latestNudgeMessage = "Session ended"
         nudgePanelController.hide()
-        showIntentionModal()
+
+        let action = pendingEndAction
+        pendingEndAction = nil
+
+        switch action {
+        case .showIntentionModal:
+            showIntentionModal()
+        case .endSession, nil:
+            showIntentionModal()
+        }
     }
 
     func allowDriftForFiveMinutes() {
@@ -182,8 +236,8 @@ final class AppState: ObservableObject {
         } else {
             currentAlignment = .drift
             latestNudgeMessage = "Self-reported drift"
-            Logger.log("Nudge", "User self-reported drift, showing intention modal")
-            showIntentionModal()
+            Logger.log("Nudge", "User self-reported drift, requesting new intention")
+            requestNewIntention()
         }
     }
 
