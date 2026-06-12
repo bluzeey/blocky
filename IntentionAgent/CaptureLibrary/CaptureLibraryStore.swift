@@ -9,7 +9,7 @@ final class CaptureLibraryStore: ObservableObject {
 
     private let fileManager = FileManager.default
     private let fileSystemLayout = FileSystemLayout()
-    private let sqliteStore: SQLiteStore
+    let sqliteStore: SQLiteStore
 
     init() {
         do {

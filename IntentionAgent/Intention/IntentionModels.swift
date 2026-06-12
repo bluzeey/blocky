@@ -25,6 +25,12 @@ struct SessionDraft: Equatable {
     var blockedAppsText: String = ""
     var allowedCategories: Set<ActivityCategory> = []
     var blockedCategories: Set<ActivityCategory> = []
+    var source: SessionSource = .intention
+    var taskId: UUID? = nil
+
+    var isExploration: Bool {
+        source == .exploration
+    }
 }
 
 extension SessionDraft {

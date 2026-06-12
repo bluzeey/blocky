@@ -57,7 +57,7 @@ struct MenuBarRootView: View {
     private var sessionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let session = appState.activeSession {
-                Text("Current Intention")
+                Text(appState.isExplorationMode ? "Exploring" : "Current Intention")
                     .font(.headline)
 
                 HStack {
@@ -83,11 +83,13 @@ struct MenuBarRootView: View {
                     .pointerCursor()
                 }
 
-                Button("Allow 5 Min Drift") {
-                    appState.allowDriftForFiveMinutes()
+                if !appState.isExplorationMode {
+                    Button("Allow 5 Min Drift") {
+                        appState.allowDriftForFiveMinutes()
+                    }
+                    .font(.caption2)
+                    .pointerCursor()
                 }
-                .font(.caption2)
-                .pointerCursor()
 
                 Button("New Intention") {
                     appState.showIntentionModal()
@@ -112,14 +114,14 @@ struct MenuBarRootView: View {
 
             HStack {
                 Circle()
-                    .fill(color(for: appState.currentAlignment))
+                    .fill(appState.isExplorationMode ? .blue : color(for: appState.currentAlignment))
                     .frame(width: 8, height: 8)
-                Text(appState.currentMetadata.map { "\($0.activeAppName)" } ?? "No active context")
+                Text(appState.isExplorationMode ? "Exploration mode" : (appState.currentMetadata.map { "\($0.activeAppName)" } ?? "No active context"))
                     .font(.caption)
                 Spacer()
-                Text(appState.currentAlignment.rawValue.capitalized)
+                Text(appState.isExplorationMode ? "No tracking" : appState.currentAlignment.rawValue.capitalized)
                     .font(.caption)
-                    .foregroundStyle(color(for: appState.currentAlignment))
+                    .foregroundStyle(appState.isExplorationMode ? .blue : color(for: appState.currentAlignment))
             }
         }
     }

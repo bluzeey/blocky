@@ -17,6 +17,7 @@ final class AppState: ObservableObject {
     @Published var latestNudgeMessage = "No recent nudge"
     @Published var isRunningTrackingLoop = false
     @Published var driftSnoozeUntil: Date?
+    @Published var isExplorationMode: Bool = false
 
     let settingsStore: AppSettingsStore
     let permissionManager: PermissionManager
@@ -24,6 +25,7 @@ final class AppState: ObservableObject {
     let windowMetadataService: WindowMetadataService
     let privacyPolicyEngine = PrivacyPolicyEngine()
     let captureLibraryStore: CaptureLibraryStore
+    let taskStore: TaskStore
 
     private let captureCoordinator: CaptureCoordinator
     private let aiPayloadBuilder = AIPayloadBuilder()
@@ -57,6 +59,7 @@ final class AppState: ObservableObject {
         self.captureCoordinator = CaptureCoordinator()
         self.notificationManager = notificationManager
         self.nudgeService = NudgeService(notificationManager: notificationManager)
+        self.taskStore = TaskStore(sqliteStore: captureLibraryStore.sqliteStore)
         notificationManager.setupDelegate()
         observeApplicationLifecycle()
         nudgeService.appState = self
@@ -122,11 +125,17 @@ final class AppState: ObservableObject {
     func startSessionFromDraft() {
         let session = sessionDraft.buildSession(reviewIntervalSeconds: settings.aiReviewIntervalSeconds)
         activeSession = session
-        latestNudgeMessage = "Session started"
+        isExplorationMode = sessionDraft.isExploration
+        latestNudgeMessage = isExplorationMode ? "Exploration mode — no tracking" : "Session started"
         lastAIReviewDate = nil
         recentEvents.removeAll()
+
+        if let taskId = sessionDraft.taskId {
+            taskStore.markCompleted(id: taskId)
+        }
+
         hideIntentionModal()
-        Logger.log("Session", "Started session id=\(session.id.uuidString) title=\(session.title)")
+        Logger.log("Session", "Started session id=\(session.id.uuidString) title=\(session.title) source=\(sessionDraft.source.rawValue) exploration=\(isExplorationMode)")
     }
 
     func togglePauseSession() {
@@ -138,6 +147,7 @@ final class AppState: ObservableObject {
     func endSession() {
         Logger.log("Session", "Ended session id=\(activeSession?.id.uuidString ?? "nil")")
         activeSession = nil
+        isExplorationMode = false
         driftSnoozeUntil = nil
         latestNudgeMessage = "Session ended"
         nudgePanelController.hide()
@@ -210,6 +220,8 @@ final class AppState: ObservableObject {
     }
 
     private func performTrackingTick() async {
+        guard !isExplorationMode else { return }
+
         guard let metadata = windowMetadataService.currentWindowMetadata(), let activeSession else {
             Logger.log("Tracking", "Skipping tracking tick because metadata or session is missing")
             return
@@ -375,6 +387,8 @@ final class AppState: ObservableObject {
     }
 
     private func performAIAlignmentCheck(session: IntentionSession) async {
+        guard !isExplorationMode else { return }
+
         let now = Date()
         let interval = TimeInterval(max(60, settings.aiReviewIntervalSeconds))
 

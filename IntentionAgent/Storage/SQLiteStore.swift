@@ -112,6 +112,90 @@ final class SQLiteStore {
         Logger.log("SQLite", "Deleted all capture and payload rows")
     }
 
+    func insertFocusTask(_ task: FocusTask) throws {
+        let sql = "INSERT OR REPLACE INTO focus_tasks (id, title, duration_minutes, list_type, completed_at, created_at, record_json) VALUES (?, ?, ?, ?, ?, ?, ?);"
+        let recordData = try JSONEncoder().encode(task)
+        let recordJSONString = String(data: recordData, encoding: .utf8) ?? "{}"
+
+        let statement = try prepareStatement(sql: sql)
+        defer { sqlite3_finalize(statement) }
+
+        bindText(task.id.uuidString, at: 1, to: statement)
+        bindText(task.title, at: 2, to: statement)
+        sqlite3_bind_int(statement, 3, Int32(task.durationMinutes))
+        bindText(task.listType.rawValue, at: 4, to: statement)
+        if let completedAt = task.completedAt {
+            sqlite3_bind_double(statement, 5, completedAt.timeIntervalSince1970)
+        } else {
+            sqlite3_bind_null(statement, 5)
+        }
+        sqlite3_bind_double(statement, 6, task.createdAt.timeIntervalSince1970)
+        bindText(recordJSONString, at: 7, to: statement)
+
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw databaseError(prefix: "Failed to insert focus task")
+        }
+        Logger.log("SQLite", "Inserted focus task \(task.id.uuidString)")
+    }
+
+    func fetchFocusTasks(listType: TaskListType? = nil) throws -> [FocusTask] {
+        var sql = "SELECT record_json FROM focus_tasks"
+        if let listType {
+            sql += " WHERE list_type = '\(listType.rawValue)'"
+        }
+        sql += " ORDER BY created_at ASC;"
+
+        let statement = try prepareStatement(sql: sql)
+        defer { sqlite3_finalize(statement) }
+
+        var tasks: [FocusTask] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            if let task = decodeJSONColumn(FocusTask.self, statement: statement, columnIndex: 0) {
+                tasks.append(task)
+            }
+        }
+        return tasks
+    }
+
+    func updateFocusTaskCompleted(id: UUID, completedAt: Date?) throws {
+        let fetchSQL = "SELECT record_json FROM focus_tasks WHERE id = ?;"
+        let fetchStmt = try prepareStatement(sql: fetchSQL)
+        defer { sqlite3_finalize(fetchStmt) }
+        bindText(id.uuidString, at: 1, to: fetchStmt)
+
+        guard sqlite3_step(fetchStmt) == SQLITE_ROW,
+              var task = decodeJSONColumn(FocusTask.self, statement: fetchStmt, columnIndex: 0) else {
+            throw databaseError(prefix: "Failed to fetch focus task for completion update")
+        }
+
+        task.completedAt = completedAt
+        let updatedData = try JSONEncoder().encode(task)
+        let updatedJSON = String(data: updatedData, encoding: .utf8) ?? "{}"
+
+        let updateSQL = "UPDATE focus_tasks SET completed_at = ?, record_json = ? WHERE id = ?;"
+        let updateStmt = try prepareStatement(sql: updateSQL)
+        defer { sqlite3_finalize(updateStmt) }
+
+        if let completedAt {
+            sqlite3_bind_double(updateStmt, 1, completedAt.timeIntervalSince1970)
+        } else {
+            sqlite3_bind_null(updateStmt, 1)
+        }
+        bindText(updatedJSON, at: 2, to: updateStmt)
+        bindText(id.uuidString, at: 3, to: updateStmt)
+
+        guard sqlite3_step(updateStmt) == SQLITE_DONE else {
+            throw databaseError(prefix: "Failed to update focus task completion")
+        }
+
+        Logger.log("SQLite", "Updated focus task completion id=\(id.uuidString) completed=\(completedAt != nil)")
+    }
+
+    func deleteCompletedFocusTasks() throws {
+        try execute(sql: "DELETE FROM focus_tasks WHERE completed_at IS NOT NULL;")
+        Logger.log("SQLite", "Deleted completed focus tasks")
+    }
+
     private func openDatabase() throws {
         if sqlite3_open(databaseURL.path, &database) != SQLITE_OK {
             throw databaseError(prefix: "Failed to open database")
@@ -123,6 +207,8 @@ final class SQLiteStore {
         try execute(sql: "CREATE INDEX IF NOT EXISTS idx_capture_records_timestamp ON capture_records(timestamp DESC);")
         try execute(sql: "CREATE TABLE IF NOT EXISTS payload_records (id TEXT PRIMARY KEY, timestamp REAL NOT NULL, session_id TEXT NOT NULL, payload_path TEXT NOT NULL, record_json TEXT NOT NULL);")
         try execute(sql: "CREATE INDEX IF NOT EXISTS idx_payload_records_timestamp ON payload_records(timestamp DESC);")
+        try execute(sql: "CREATE TABLE IF NOT EXISTS focus_tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL, duration_minutes INTEGER NOT NULL, list_type TEXT NOT NULL, completed_at REAL, created_at REAL NOT NULL, record_json TEXT NOT NULL);")
+        try execute(sql: "CREATE INDEX IF NOT EXISTS idx_focus_tasks_list_type ON focus_tasks(list_type);")
     }
 
     private func execute(sql: String) throws {
