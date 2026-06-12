@@ -10,6 +10,18 @@ private let titleKeywordCategoryMap: [ActivityCategory: Set<String>] = [
     .browsing: ["browse", "surf", "shop", "buy", "news", "read"],
 ]
 
+private let stopWords: Set<String> = [
+    "the", "and", "for", "with", "this", "that", "from", "into", "about",
+    "what", "which", "when", "where", "who", "how", "are", "was", "were",
+    "been", "have", "has", "had", "will", "would", "could", "should",
+    "can", "may", "might", "shall", "does", "did", "not", "but", "just",
+    "also", "than", "then", "very", "too", "much", "more", "most", "some",
+    "any", "all", "each", "every", "both", "few", "many", "other", "such",
+    "only", "own", "same", "here", "there", "being", "because", "over",
+    "after", "before", "between", "through", "during", "without", "within",
+    "along", "using", "working", "work", "task", "session", "focus",
+]
+
 @MainActor
 final class IntentionSessionManager {
     func inferCategoriesFromTitle(_ title: String) -> Set<ActivityCategory> {
@@ -21,6 +33,13 @@ final class IntentionSessionManager {
             }
         }
         return inferred
+    }
+
+    func significantWords(from title: String) -> Set<String> {
+        let words = title.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { $0.count >= 3 && !stopWords.contains($0) }
+        return Set(words)
     }
 
     func remainingTimeText(for session: IntentionSession) -> String {
@@ -119,6 +138,14 @@ final class IntentionSessionManager {
 
         if !session.allowedApps.isEmpty || !session.allowedCategories.isEmpty {
             return .neutral
+        }
+
+        let titleWords = significantWords(from: session.title)
+        if !titleWords.isEmpty {
+            let contextText = "\(appName) \(metadata.windowTitle?.lowercased() ?? "")"
+            if titleWords.contains(where: { contextText.contains($0) }) {
+                return .aligned
+            }
         }
 
         let inferredCategories = inferCategoriesFromTitle(session.title)

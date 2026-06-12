@@ -46,7 +46,7 @@ struct TaskResolutionView: View {
                     onResolve(.continueLater)
                 } label: {
                     HStack {
-                        Image(systemName: "arrow.triangle.swap.auto")
+                        Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.body)
                         Text(isTaskBacked ? "Got another task" : "Switch intention")
                             .font(.body)
