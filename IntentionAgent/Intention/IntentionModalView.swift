@@ -250,12 +250,7 @@ struct IntentionModalView: View {
     }
 
     private var actionButtons: some View {
-        HStack(spacing: 16) {
-            Button("Cancel") {
-                appState.hideIntentionModal()
-            }
-            .pointerCursor()
-
+        HStack {
             Spacer()
 
             Button("Start") {
