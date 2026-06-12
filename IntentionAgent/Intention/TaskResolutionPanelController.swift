@@ -22,14 +22,14 @@ final class TaskResolutionPanelController {
     private var backdrop: ResolutionBackdropWindow?
     private var screenChangeObserver: NSObjectProtocol?
 
-    func show(appState: AppState, taskTitle: String) {
+    func show(appState: AppState, sessionTitle: String, isTaskBacked: Bool) {
         if let panel, panel.isVisible { return }
 
         NSApp.activate(ignoringOtherApps: true)
 
         let panelRect = NSRect(x: 0, y: 0, width: 360, height: 280)
 
-        let contentView = TaskResolutionView(taskTitle: taskTitle) { resolution in
+        let contentView = TaskResolutionView(sessionTitle: sessionTitle, isTaskBacked: isTaskBacked) { resolution in
             appState.resolveTask(resolution)
         }
         let hostingView = NSHostingView(rootView: contentView)

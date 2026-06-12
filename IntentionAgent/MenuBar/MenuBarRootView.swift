@@ -83,14 +83,6 @@ struct MenuBarRootView: View {
                     .pointerCursor()
                 }
 
-                if !appState.isExplorationMode {
-                    Button("Allow 5 Min Drift") {
-                        appState.allowDriftForFiveMinutes()
-                    }
-                    .font(.caption2)
-                    .pointerCursor()
-                }
-
                 Button("New Intention") {
                     appState.requestNewIntention()
                 }

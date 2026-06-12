@@ -21,7 +21,6 @@ final class AppState: ObservableObject {
     @Published var aiStatusMessage = "AI review idle"
     @Published var latestNudgeMessage = "No recent nudge"
     @Published var isRunningTrackingLoop = false
-    @Published var driftSnoozeUntil: Date?
     @Published var isExplorationMode: Bool = false
 
     let settingsStore: AppSettingsStore
@@ -148,38 +147,36 @@ final class AppState: ObservableObject {
     }
 
     func endSession() {
-        guard let session = activeSession, session.isTaskBacked else {
-            performEndSession()
-            return
-        }
-        pendingEndAction = .endSession
+        guard let session = activeSession else { return }
         nudgePanelController.hide()
-        hideIntentionModal()
-        taskResolutionPanelController.show(appState: self, taskTitle: session.title)
+        pendingEndAction = .endSession
+        taskResolutionPanelController.show(appState: self, sessionTitle: session.title, isTaskBacked: session.isTaskBacked)
     }
 
     func requestNewIntention() {
-        guard let session = activeSession, session.isTaskBacked else {
+        guard let session = activeSession else {
             showIntentionModal()
             return
         }
-        pendingEndAction = .showIntentionModal
         nudgePanelController.hide()
         hideIntentionModal()
-        taskResolutionPanelController.show(appState: self, taskTitle: session.title)
+        pendingEndAction = .showIntentionModal
+        taskResolutionPanelController.show(appState: self, sessionTitle: session.title, isTaskBacked: session.isTaskBacked)
     }
 
     func resolveTask(_ resolution: TaskResolution) {
         taskResolutionPanelController.hide()
 
-        guard let session = activeSession, session.isTaskBacked else {
+        guard let session = activeSession else {
             pendingEndAction = nil
             return
         }
 
         switch resolution {
         case .completed:
-            taskStore.markCompleted(id: session.taskId!)
+            if session.isTaskBacked, let taskId = session.taskId {
+                taskStore.markCompleted(id: taskId)
+            }
             performEndSession()
         case .continueLater:
             performEndSession()
@@ -193,7 +190,6 @@ final class AppState: ObservableObject {
         Logger.log("Session", "Ended session id=\(activeSession?.id.uuidString ?? "nil")")
         activeSession = nil
         isExplorationMode = false
-        driftSnoozeUntil = nil
         latestNudgeMessage = "Session ended"
         nudgePanelController.hide()
 
@@ -206,12 +202,6 @@ final class AppState: ObservableObject {
         case .endSession, nil:
             showIntentionModal()
         }
-    }
-
-    func allowDriftForFiveMinutes() {
-        driftSnoozeUntil = Date().addingTimeInterval(5 * 60)
-        latestNudgeMessage = "Five-minute drift allowance enabled"
-        Logger.log("Session", "Enabled five-minute drift allowance until \(driftSnoozeUntil?.description ?? "nil")")
     }
 
     func showIntentionModal() {
@@ -299,11 +289,6 @@ final class AppState: ObservableObject {
            alignment == .drift {
             alignment = aiValidatedAlignment
             Logger.log("Tracking", "Applied recent AI validation: alignment=\(alignment.rawValue)")
-        }
-
-        if let driftSnoozeUntil, driftSnoozeUntil > Date(), alignment == .drift {
-            alignment = .neutral
-            Logger.log("Tracking", "Drift was snoozed; alignment downgraded to neutral")
         }
 
         let processingResult = await captureCoordinator.process(

@@ -7,15 +7,20 @@ enum TaskResolution: Equatable {
 }
 
 struct TaskResolutionView: View {
-    let taskTitle: String
+    let sessionTitle: String
+    let isTaskBacked: Bool
     let onResolve: (TaskResolution) -> Void
+
+    private var headlineText: String {
+        isTaskBacked ? "What happened with your task?" : "What happened with your current intention?"
+    }
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("What happened with your task?")
+            Text(headlineText)
                 .font(.title2.bold())
 
-            Text(taskTitle)
+            Text(sessionTitle)
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -41,9 +46,9 @@ struct TaskResolutionView: View {
                     onResolve(.continueLater)
                 } label: {
                     HStack {
-                        Image(systemName: "clock.arrow.circlepath")
+                        Image(systemName: "arrow.triangle.swap.auto")
                             .font(.body)
-                        Text("Continue Later")
+                        Text(isTaskBacked ? "Got another task" : "Switch intention")
                             .font(.body)
                     }
                     .frame(maxWidth: .infinity)
@@ -57,7 +62,7 @@ struct TaskResolutionView: View {
                     HStack {
                         Image(systemName: "xmark.circle")
                             .font(.body)
-                        Text("Cancel")
+                        Text("Stay on current")
                             .font(.body)
                     }
                     .frame(maxWidth: .infinity)
