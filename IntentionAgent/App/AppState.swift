@@ -50,6 +50,7 @@ final class AppState: ObservableObject {
     private let intentionPanelController = IntentionPanelController()
     private let nudgePanelController = NudgePanelController()
     private let taskResolutionPanelController = TaskResolutionPanelController()
+    private let launchAtLoginManager = LaunchAtLoginManager()
     private var pendingEndAction: TaskResolutionPendingAction?
 
     init() {
@@ -69,6 +70,7 @@ final class AppState: ObservableObject {
         notificationManager.setupDelegate()
         observeApplicationLifecycle()
         nudgeService.appState = self
+        launchAtLoginManager.reconcile(with: settings.launchAtLoginEnabled)
         Logger.log("AppState", "Initialized AppState")
         Task { [weak self] in
             await self?.startIfNeeded()
@@ -125,6 +127,7 @@ final class AppState: ObservableObject {
     func saveSettings(_ settings: AppSettings) {
         settingsStore.replace(with: settings)
         refreshSettings()
+        launchAtLoginManager.apply(settings.launchAtLoginEnabled)
         Logger.log("AppState", "Saved settings")
     }
 
@@ -149,6 +152,10 @@ final class AppState: ObservableObject {
     func endSession() {
         guard let session = activeSession else { return }
         nudgePanelController.hide()
+        if session.source == .exploration {
+            performEndSession()
+            return
+        }
         pendingEndAction = .endSession
         taskResolutionPanelController.show(appState: self, sessionTitle: session.title, isTaskBacked: session.isTaskBacked)
     }
@@ -160,6 +167,10 @@ final class AppState: ObservableObject {
         }
         nudgePanelController.hide()
         hideIntentionModal()
+        if session.source == .exploration {
+            performEndSession()
+            return
+        }
         pendingEndAction = .showIntentionModal
         taskResolutionPanelController.show(appState: self, sessionTitle: session.title, isTaskBacked: session.isTaskBacked)
     }

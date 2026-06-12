@@ -32,6 +32,10 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Startup") {
+                Toggle("Launch at Login", isOn: $draftSettings.launchAtLoginEnabled)
+            }
+
             Section("Privacy") {
                 Toggle("Store redacted previews", isOn: $draftSettings.storeRedactedPreviews)
                 Toggle("Send redacted images to AI", isOn: $draftSettings.sendRedactedImagesToAI)

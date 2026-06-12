@@ -56,6 +56,7 @@ struct AppSettings: Codable, Equatable {
     var allowedNormalScreenshotApps: [String]
     var userBlockedAppKeywords: [String]
     var userSensitiveTitleKeywords: [String]
+    var launchAtLoginEnabled: Bool
 
     var hasAIConfiguration: Bool {
         !aiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -75,7 +76,8 @@ struct AppSettings: Codable, Equatable {
         strictModeEnabled: true,
         allowedNormalScreenshotApps: [],
         userBlockedAppKeywords: [],
-        userSensitiveTitleKeywords: []
+        userSensitiveTitleKeywords: [],
+        launchAtLoginEnabled: false
     )
 
     private enum CodingKeys: String, CodingKey {
@@ -93,6 +95,7 @@ struct AppSettings: Codable, Equatable {
         case allowedNormalScreenshotApps
         case userBlockedAppKeywords
         case userSensitiveTitleKeywords
+        case launchAtLoginEnabled
         case umansAPIKey
         case umansBaseURLString
         case umansModelName
@@ -112,7 +115,8 @@ struct AppSettings: Codable, Equatable {
         strictModeEnabled: Bool,
         allowedNormalScreenshotApps: [String],
         userBlockedAppKeywords: [String],
-        userSensitiveTitleKeywords: [String]
+        userSensitiveTitleKeywords: [String],
+        launchAtLoginEnabled: Bool
     ) {
         self.aiProvider = aiProvider
         self.aiAPIKey = aiAPIKey
@@ -128,6 +132,7 @@ struct AppSettings: Codable, Equatable {
         self.allowedNormalScreenshotApps = allowedNormalScreenshotApps
         self.userBlockedAppKeywords = userBlockedAppKeywords
         self.userSensitiveTitleKeywords = userSensitiveTitleKeywords
+        self.launchAtLoginEnabled = launchAtLoginEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -154,6 +159,7 @@ struct AppSettings: Codable, Equatable {
         allowedNormalScreenshotApps = try container.decodeIfPresent([String].self, forKey: .allowedNormalScreenshotApps) ?? defaults.allowedNormalScreenshotApps
         userBlockedAppKeywords = try container.decodeIfPresent([String].self, forKey: .userBlockedAppKeywords) ?? defaults.userBlockedAppKeywords
         userSensitiveTitleKeywords = try container.decodeIfPresent([String].self, forKey: .userSensitiveTitleKeywords) ?? defaults.userSensitiveTitleKeywords
+        launchAtLoginEnabled = try container.decodeIfPresent(Bool.self, forKey: .launchAtLoginEnabled) ?? defaults.launchAtLoginEnabled
     }
 
     func encode(to encoder: Encoder) throws {
@@ -172,5 +178,6 @@ struct AppSettings: Codable, Equatable {
         try container.encode(allowedNormalScreenshotApps, forKey: .allowedNormalScreenshotApps)
         try container.encode(userBlockedAppKeywords, forKey: .userBlockedAppKeywords)
         try container.encode(userSensitiveTitleKeywords, forKey: .userSensitiveTitleKeywords)
+        try container.encode(launchAtLoginEnabled, forKey: .launchAtLoginEnabled)
     }
 }
