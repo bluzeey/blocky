@@ -103,6 +103,26 @@ final class IntentionSessionManager {
         effectiveEndDate(for: session) <= Date()
     }
 
+    func restart(_ session: IntentionSession) -> IntentionSession {
+        let originalDurationSeconds = session.endsAt.timeIntervalSince(session.startedAt)
+        let now = Date()
+        return IntentionSession(
+            id: UUID(),
+            title: session.title,
+            startedAt: now,
+            endsAt: now.addingTimeInterval(originalDurationSeconds),
+            allowedApps: session.allowedApps,
+            allowedCategories: session.allowedCategories,
+            blockedApps: session.blockedApps,
+            blockedCategories: session.blockedCategories,
+            aiReviewIntervalSeconds: session.aiReviewIntervalSeconds,
+            pauseStartedAt: nil,
+            totalPausedSeconds: 0,
+            source: session.source,
+            taskId: session.taskId
+        )
+    }
+
     func evaluateAlignment(
         session: IntentionSession?,
         metadata: WindowMetadata,

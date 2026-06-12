@@ -190,7 +190,13 @@ final class AppState: ObservableObject {
             }
             performEndSession()
         case .cancel:
+            activeSession = sessionManager.restart(session)
+            currentAlignment = .neutral
+            lastNudgeShownDate = Date()
+            lastPeriodicNudgeDate = Date()
+            recentEvents.removeAll()
             pendingEndAction = nil
+            Logger.log("Session", "Restarted session with original duration id=\(activeSession?.id.uuidString ?? "nil")")
             return
         }
     }
