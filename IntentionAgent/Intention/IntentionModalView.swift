@@ -21,6 +21,9 @@ enum WorkModalTab: String, CaseIterable, Identifiable {
 struct IntentionModalView: View {
     @ObservedObject var appState: AppState
 
+    var initialTab: WorkModalTab = .intention
+    var initiallyOpenAddTask: Bool = false
+
     @State private var activeTab: WorkModalTab = .intention
     @State private var intentionText: String = ""
     @State private var durationMinutes: Int = 30
@@ -67,8 +70,8 @@ struct IntentionModalView: View {
             durationMinutes = 30
             selectedDailyTaskId = nil
             selectedWeeklyTaskId = nil
-            isAddTaskOpen = false
-            activeTab = .intention
+            activeTab = initialTab
+            isAddTaskOpen = initiallyOpenAddTask
         }
     }
 

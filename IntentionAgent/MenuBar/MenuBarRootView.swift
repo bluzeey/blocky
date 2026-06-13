@@ -132,6 +132,24 @@ struct MenuBarRootView: View {
                 .pointerCursor()
             }
 
+            HStack(spacing: 8) {
+                Button {
+                    appState.showIntentionModal(initialTab: .daily, openAddTask: true)
+                } label: {
+                    Label("Daily Tasks", systemImage: "calendar")
+                        .font(.caption)
+                }
+                .pointerCursor()
+
+                Button {
+                    appState.showIntentionModal(initialTab: .weekly, openAddTask: true)
+                } label: {
+                    Label("Weekly Tasks", systemImage: "calendar.badge.clock")
+                        .font(.caption)
+                }
+                .pointerCursor()
+            }
+
             Divider()
 
             Button("Quit Blocky") {

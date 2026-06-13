@@ -28,14 +28,14 @@ final class IntentionPanelController {
     private var deactivationObserver: NSObjectProtocol?
     private var screenChangeObserver: NSObjectProtocol?
 
-    func show(appState: AppState) {
+    func show(appState: AppState, initialTab: WorkModalTab = .intention, openAddTask: Bool = false) {
         if let panel, panel.isVisible { return }
 
         NSApp.activate(ignoringOtherApps: true)
 
         let panelRect = NSRect(x: 0, y: 0, width: 440, height: 520)
 
-        let contentView = IntentionModalView(appState: appState)
+        let contentView = IntentionModalView(appState: appState, initialTab: initialTab, initiallyOpenAddTask: openAddTask)
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.frame = panelRect
 

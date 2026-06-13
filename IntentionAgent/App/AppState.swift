@@ -232,8 +232,8 @@ final class AppState: ObservableObject {
         }
     }
 
-    func showIntentionModal() {
-        intentionPanelController.show(appState: self)
+    func showIntentionModal(initialTab: WorkModalTab = .intention, openAddTask: Bool = false) {
+        intentionPanelController.show(appState: self, initialTab: initialTab, openAddTask: openAddTask)
     }
 
     func hideIntentionModal() {
