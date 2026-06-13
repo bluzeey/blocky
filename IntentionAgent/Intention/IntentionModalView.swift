@@ -162,13 +162,6 @@ struct IntentionModalView: View {
                     selectedDailyTaskId = task.id
                     durationMinutes = task.durationMinutes
                 },
-                onDelete: { task in
-                    appState.taskStore.deleteTask(id: task.id)
-                    if selectedDailyTaskId == task.id {
-                        selectedDailyTaskId = nil
-                        durationMinutes = 30
-                    }
-                },
                 onAddTask: {
                     isAddTaskOpen.toggle()
                 },
@@ -206,13 +199,6 @@ struct IntentionModalView: View {
                 onSelect: { task in
                     selectedWeeklyTaskId = task.id
                     durationMinutes = task.durationMinutes
-                },
-                onDelete: { task in
-                    appState.taskStore.deleteTask(id: task.id)
-                    if selectedWeeklyTaskId == task.id {
-                        selectedWeeklyTaskId = nil
-                        durationMinutes = 30
-                    }
                 },
                 onAddTask: {
                     isAddTaskOpen.toggle()
@@ -268,6 +254,26 @@ struct IntentionModalView: View {
 
     private var actionButtons: some View {
         HStack {
+            if activeTab == .daily, selectedDailyTaskId != nil {
+                Button("Delete", role: .destructive) {
+                    guard let id = selectedDailyTaskId else { return }
+                    appState.taskStore.deleteTask(id: id)
+                    selectedDailyTaskId = nil
+                    durationMinutes = 30
+                }
+                .pointerCursor()
+            }
+
+            if activeTab == .weekly, selectedWeeklyTaskId != nil {
+                Button("Delete", role: .destructive) {
+                    guard let id = selectedWeeklyTaskId else { return }
+                    appState.taskStore.deleteTask(id: id)
+                    selectedWeeklyTaskId = nil
+                    durationMinutes = 30
+                }
+                .pointerCursor()
+            }
+
             Spacer()
 
             Button("Start") {

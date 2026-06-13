@@ -4,7 +4,6 @@ struct TaskListView: View {
     let tasks: [FocusTask]
     let selectedTaskId: UUID?
     let onSelect: (FocusTask) -> Void
-    let onDelete: (FocusTask) -> Void
     let onAddTask: () -> Void
     let listTitle: String
     let emptyMessage: String
@@ -75,25 +74,17 @@ struct TaskListView: View {
     }
 
     private var taskList: some View {
-        List {
-            ForEach(tasks) { task in
-                TaskRowView(
-                    task: task,
-                    isSelected: selectedTaskId == task.id,
-                    onSelect: { onSelect(task) }
-                )
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) {
-                        onDelete(task)
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
+        ScrollView {
+            VStack(spacing: 2) {
+                ForEach(tasks) { task in
+                    TaskRowView(
+                        task: task,
+                        isSelected: selectedTaskId == task.id,
+                        onSelect: { onSelect(task) }
+                    )
                 }
-                .listRowBackground(Color.clear)
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .frame(maxHeight: 240)
     }
 }
