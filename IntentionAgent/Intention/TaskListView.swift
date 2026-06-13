@@ -98,16 +98,18 @@ private struct TaskRowView: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 16))
                     .foregroundStyle(isSelected ? .blue : .secondary)
                     .symbolEffect(.bounce, value: isSelected)
+                    .padding(.top, 2)
 
                 Text(task.title)
                     .font(.subheadline)
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Spacer()
 
@@ -115,6 +117,7 @@ private struct TaskRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
+                    .padding(.top, 2)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
