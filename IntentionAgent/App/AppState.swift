@@ -47,6 +47,7 @@ final class AppState: ObservableObject {
     private var aiValidatedAlignment: Alignment?
     private var aiValidatedAt: Date?
     private var aiValidatedAppTitle: String?
+    private var driftStartedAt: Date?
     private let intentionPanelController = IntentionPanelController()
     private let nudgePanelController = NudgePanelController()
     private let taskResolutionPanelController = TaskResolutionPanelController()
@@ -137,6 +138,7 @@ final class AppState: ObservableObject {
         isExplorationMode = sessionDraft.isExploration
         latestNudgeMessage = isExplorationMode ? "Exploration mode — no tracking" : "Session started"
         lastAIReviewDate = nil
+        driftStartedAt = nil
         recentEvents.removeAll()
 
         hideIntentionModal()
@@ -289,6 +291,8 @@ final class AppState: ObservableObject {
         }
     }
 
+    private let driftGraceInterval: TimeInterval = 60
+
     private func performTrackingTick() async {
         guard !isExplorationMode else { return }
 
@@ -297,7 +301,12 @@ final class AppState: ObservableObject {
             return
         }
 
-        Logger.log("Tracking", "Tracking tick for app=\(metadata.activeAppName) title=\(metadata.windowTitle ?? "nil")")
+        let isOwnApp = metadata.bundleIdentifier == Bundle.main.bundleIdentifier
+        if isOwnApp {
+            Logger.log("Tracking", "Skipping drift/nudge for own app window")
+        }
+
+        Logger.log("Tracking", "Tracking tick for app=\(metadata.activeAppName) title=\(metadata.windowTitle ?? "nil") host=\(metadata.pageHost ?? "nil")")
 
         let privacyDecision = privacyPolicyEngine.decidePolicy(for: metadata, settings: settings)
         var alignment = sessionManager.evaluateAlignment(
@@ -307,6 +316,10 @@ final class AppState: ObservableObject {
             privacyDecision: privacyDecision,
             settings: settings
         )
+
+        if isOwnApp {
+            alignment = .neutral
+        }
 
         let appTitleKey = "\(metadata.activeAppName)|\(metadata.windowTitle ?? "")"
         if let aiValidatedAlignment, let aiValidatedAt, let aiValidatedAppTitle,
@@ -346,7 +359,8 @@ final class AppState: ObservableObject {
             skippedReason: processingResult.skippedReason,
             redactionReasons: processingResult.redactionReasons,
             sentToAI: false,
-            privacyDecisionReason: privacyDecision.reason
+            privacyDecisionReason: privacyDecision.reason,
+            pageHost: metadata.pageHost
         )
 
         do {
@@ -366,8 +380,10 @@ final class AppState: ObservableObject {
             captureRecordID: captureRecord.id
         )
 
-        recentEvents.append(contextEvent)
-        recentEvents = Array(recentEvents.suffix(500))
+        if !isOwnApp {
+            recentEvents.append(contextEvent)
+            recentEvents = Array(recentEvents.suffix(500))
+        }
 
         currentMetadata = metadata
         currentDecision = privacyDecision
@@ -375,22 +391,35 @@ final class AppState: ObservableObject {
         currentAlignment = alignment
         Logger.log("Tracking", "Tracking tick completed with alignment=\(alignment.rawValue) policy=\(privacyDecision.policy.rawValue)")
 
-        if alignment == .drift, previousAlignment != .drift {
-            if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
-                Logger.log("Tracking", "Drift detected but nudge shown recently, skipping popup")
-            } else {
-                await validateDriftBeforeNudge(
-                    session: activeSession,
-                    metadata: metadata,
-                    category: privacyDecision.category
-                )
+        if alignment == .drift {
+            if previousAlignment != .drift {
+                driftStartedAt = Date()
+                Logger.log("Tracking", "Drift started, beginning grace period")
             }
+            if let driftStartedAt, Date().timeIntervalSince(driftStartedAt) >= driftGraceInterval {
+                if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
+                    Logger.log("Tracking", "Drift sustained past grace but nudge shown recently, skipping popup")
+                } else {
+                    await validateDriftBeforeNudge(
+                        session: activeSession,
+                        metadata: metadata,
+                        category: privacyDecision.category
+                    )
+                }
+            } else {
+                Logger.log("Tracking", "Drift within grace period, waiting")
+            }
+        } else {
+            driftStartedAt = nil
         }
 
+        let onExpectedSite = !activeSession.expectedHosts.isEmpty && metadata.pageHost != nil && activeSession.expectedHosts.contains(where: { hostMatches(expected: $0, current: metadata.pageHost!) })
         let nudgeIntervalSeconds = max(60, settings.aiReviewIntervalSeconds)
         if self.lastPeriodicNudgeDate != nil {
             if let lastPeriodicNudgeDate, Date().timeIntervalSince(lastPeriodicNudgeDate) >= TimeInterval(nudgeIntervalSeconds) {
-                if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
+                if onExpectedSite {
+                    Logger.log("Tracking", "Periodic nudge skipped: on expected site")
+                } else if let lastNudgeShownDate, Date().timeIntervalSince(lastNudgeShownDate) < 60 {
                     Logger.log("Tracking", "Periodic nudge skipped: nudge shown recently")
                 } else {
                     Logger.log("Tracking", "Periodic nudge timer fired")
@@ -407,6 +436,13 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func hostMatches(expected: String, current: String) -> Bool {
+        let normalizedCurrent = current.hasPrefix("www.") ? String(current.dropFirst(4)) : current
+        if normalizedCurrent == expected { return true }
+        if normalizedCurrent.hasSuffix(".\(expected)") { return true }
+        return false
+    }
+
     private func validateDriftBeforeNudge(
         session: IntentionSession,
         metadata: WindowMetadata,
@@ -420,7 +456,10 @@ final class AppState: ObservableObject {
 
         Logger.log("Tracking", "Keyword drift detected, validating with AI before showing nudge")
 
-        let recentApps = recentEvents.suffix(20).map { (app: $0.metadata.activeAppName, title: $0.metadata.windowTitle ?? "Unknown") }
+        let recentApps = recentEvents.suffix(20).compactMap { event -> (app: String, title: String)? in
+            if event.metadata.bundleIdentifier == Bundle.main.bundleIdentifier { return nil }
+            return (app: event.metadata.activeAppName, title: event.metadata.windowTitle ?? "Unknown")
+        }
 
         do {
             let response = try await aiClient.checkAlignment(
@@ -446,8 +485,13 @@ final class AppState: ObservableObject {
                 Logger.log("Tracking", "AI overrode keyword drift: alignment=\(response.alignment.rawValue), nudge suppressed")
             }
         } catch {
-            Logger.log("Tracking", "AI validation failed: \(error.localizedDescription), falling back to keyword drift")
-            showNudgePopup(sessionTitle: session.title, message: "You seem to have drifted from your intention. Are you on track?")
+            let graceElapsed = driftStartedAt != nil && Date().timeIntervalSince(driftStartedAt!) >= driftGraceInterval + 30
+            if graceElapsed {
+                Logger.log("Tracking", "AI validation failed: \(error.localizedDescription), grace period elapsed, showing nudge")
+                showNudgePopup(sessionTitle: session.title, message: "You seem to have drifted from your intention. Are you on track?")
+            } else {
+                Logger.log("Tracking", "AI validation failed: \(error.localizedDescription), within grace period, skipping nudge")
+            }
         }
     }
 
@@ -465,9 +509,12 @@ final class AppState: ObservableObject {
             return
         }
 
-        let recentApps = recentEvents.suffix(20).map { (app: $0.metadata.activeAppName, title: $0.metadata.windowTitle ?? "Unknown") }
+        let recentApps = recentEvents.suffix(20).compactMap { event -> (app: String, title: String)? in
+            if event.metadata.bundleIdentifier == Bundle.main.bundleIdentifier { return nil }
+            return (app: event.metadata.activeAppName, title: event.metadata.windowTitle ?? "Unknown")
+        }
         guard !recentApps.isEmpty else {
-            Logger.log("AI", "Skipping alignment check: no recent events")
+            Logger.log("AI", "Skipping alignment check: no recent events (excluding own app)")
             return
         }
 

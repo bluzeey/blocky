@@ -17,6 +17,7 @@ struct CaptureRecord: Codable, Identifiable, Equatable {
     let redactionReasons: [String]
     let sentToAI: Bool
     let privacyDecisionReason: String
+    let pageHost: String?
 }
 
 struct AIPayloadRecord: Codable, Identifiable, Equatable {

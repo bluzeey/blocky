@@ -75,7 +75,8 @@ final class IntentionSessionManager {
             pauseStartedAt: Date(),
             totalPausedSeconds: session.totalPausedSeconds,
             source: session.source,
-            taskId: session.taskId
+            taskId: session.taskId,
+            expectedHosts: session.expectedHosts
         )
     }
 
@@ -95,7 +96,8 @@ final class IntentionSessionManager {
             pauseStartedAt: nil,
             totalPausedSeconds: session.totalPausedSeconds + additionalPausedSeconds,
             source: session.source,
-            taskId: session.taskId
+            taskId: session.taskId,
+            expectedHosts: session.expectedHosts
         )
     }
 
@@ -119,7 +121,8 @@ final class IntentionSessionManager {
             pauseStartedAt: nil,
             totalPausedSeconds: 0,
             source: session.source,
-            taskId: session.taskId
+            taskId: session.taskId,
+            expectedHosts: session.expectedHosts
         )
     }
 
@@ -134,6 +137,12 @@ final class IntentionSessionManager {
 
         if privacyDecision.isSensitive {
             return .sensitive
+        }
+
+        if !session.expectedHosts.isEmpty, let pageHost = metadata.pageHost {
+            if hostMatches(expected: session.expectedHosts, current: pageHost) {
+                return .aligned
+            }
         }
 
         let appName = metadata.activeAppName.lowercased()
@@ -168,6 +177,13 @@ final class IntentionSessionManager {
             }
         }
 
+        if !session.expectedHosts.isEmpty {
+            if metadata.pageHost != nil {
+                return .drift
+            }
+            return .neutral
+        }
+
         let inferredCategories = inferCategoriesFromTitle(session.title)
         if inferredCategories.isEmpty {
             return .neutral
@@ -178,5 +194,14 @@ final class IntentionSessionManager {
         }
 
         return .drift
+    }
+
+    private func hostMatches(expected: [String], current: String) -> Bool {
+        let normalizedCurrent = current.hasPrefix("www.") ? String(current.dropFirst(4)) : current
+        for expectedHost in expected {
+            if normalizedCurrent == expectedHost { return true }
+            if normalizedCurrent.hasSuffix(".\(expectedHost)") { return true }
+        }
+        return false
     }
 }

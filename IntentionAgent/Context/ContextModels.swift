@@ -37,6 +37,8 @@ struct WindowMetadata: Codable, Identifiable, Equatable {
     let windowID: UInt32?
     let windowBounds: CGRect?
     let timestamp: Date
+    let pageURL: String?
+    let pageHost: String?
 
     init(
         id: UUID = UUID(),
@@ -45,7 +47,9 @@ struct WindowMetadata: Codable, Identifiable, Equatable {
         windowTitle: String?,
         windowID: UInt32?,
         windowBounds: CGRect?,
-        timestamp: Date
+        timestamp: Date,
+        pageURL: String? = nil,
+        pageHost: String? = nil
     ) {
         self.id = id
         self.activeAppName = activeAppName
@@ -54,6 +58,8 @@ struct WindowMetadata: Codable, Identifiable, Equatable {
         self.windowID = windowID
         self.windowBounds = windowBounds
         self.timestamp = timestamp
+        self.pageURL = pageURL
+        self.pageHost = pageHost
     }
 }
 

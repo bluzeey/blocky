@@ -14,6 +14,7 @@ struct IntentionSession: Codable, Identifiable, Equatable {
     var totalPausedSeconds: Int
     let source: SessionSource
     let taskId: UUID?
+    let expectedHosts: [String]
 
     var isPaused: Bool {
         pauseStartedAt != nil
@@ -37,6 +38,10 @@ struct SessionDraft: Equatable {
     var isExploration: Bool {
         source == .exploration
     }
+
+    var expectedHosts: [String] {
+        DomainParser.parseHosts(from: title)
+    }
 }
 
 extension SessionDraft {
@@ -55,7 +60,8 @@ extension SessionDraft {
             pauseStartedAt: nil,
             totalPausedSeconds: 0,
             source: source,
-            taskId: taskId
+            taskId: taskId,
+            expectedHosts: expectedHosts
         )
     }
 }
@@ -65,5 +71,25 @@ private extension String {
         split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+    }
+}
+
+enum DomainParser {
+    static func parseHosts(from text: String) -> [String] {
+        let tldPattern = #"(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}"#
+        guard let regex = try? NSRegularExpression(pattern: tldPattern, options: []) else { return [] }
+        let range = NSRange(text.startIndex..., in: text)
+        let matches = regex.matches(in: text, options: [], range: range)
+        var hosts: [String] = []
+        for match in matches {
+            if let swiftRange = Range(match.range, in: text) {
+                let raw = String(text[swiftRange]).lowercased()
+                let normalized = raw.hasPrefix("www.") ? String(raw.dropFirst(4)) : raw
+                if !hosts.contains(normalized) {
+                    hosts.append(normalized)
+                }
+            }
+        }
+        return hosts
     }
 }
