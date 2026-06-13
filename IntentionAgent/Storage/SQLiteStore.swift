@@ -196,6 +196,17 @@ final class SQLiteStore {
         Logger.log("SQLite", "Deleted completed focus tasks")
     }
 
+    func deleteFocusTask(id: UUID) throws {
+        let sql = "DELETE FROM focus_tasks WHERE id = ?;"
+        let statement = try prepareStatement(sql: sql)
+        defer { sqlite3_finalize(statement) }
+        bindText(id.uuidString, at: 1, to: statement)
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw databaseError(prefix: "Failed to delete focus task")
+        }
+        Logger.log("SQLite", "Deleted focus task \(id.uuidString)")
+    }
+
     private func openDatabase() throws {
         if sqlite3_open(databaseURL.path, &database) != SQLITE_OK {
             throw databaseError(prefix: "Failed to open database")

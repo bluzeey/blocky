@@ -162,6 +162,13 @@ struct IntentionModalView: View {
                     selectedDailyTaskId = task.id
                     durationMinutes = task.durationMinutes
                 },
+                onDelete: { task in
+                    appState.taskStore.deleteTask(id: task.id)
+                    if selectedDailyTaskId == task.id {
+                        selectedDailyTaskId = nil
+                        durationMinutes = 30
+                    }
+                },
                 onAddTask: {
                     isAddTaskOpen.toggle()
                 },
@@ -199,6 +206,13 @@ struct IntentionModalView: View {
                 onSelect: { task in
                     selectedWeeklyTaskId = task.id
                     durationMinutes = task.durationMinutes
+                },
+                onDelete: { task in
+                    appState.taskStore.deleteTask(id: task.id)
+                    if selectedWeeklyTaskId == task.id {
+                        selectedWeeklyTaskId = nil
+                        durationMinutes = 30
+                    }
                 },
                 onAddTask: {
                     isAddTaskOpen.toggle()

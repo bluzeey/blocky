@@ -51,6 +51,16 @@ final class TaskStore: ObservableObject {
         }
     }
 
+    func deleteTask(id: UUID) {
+        do {
+            try sqliteStore.deleteFocusTask(id: id)
+            reload()
+            Logger.log("TaskStore", "Deleted task: \(id.uuidString)")
+        } catch {
+            Logger.log("TaskStore", "Failed to delete task: \(error.localizedDescription)")
+        }
+    }
+
     func task(withId id: UUID) -> FocusTask? {
         dailyTasks.first(where: { $0.id == id }) ?? weeklyTasks.first(where: { $0.id == id })
     }
