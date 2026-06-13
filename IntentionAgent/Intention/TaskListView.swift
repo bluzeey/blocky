@@ -75,18 +75,25 @@ struct TaskListView: View {
     }
 
     private var taskList: some View {
-        ScrollView {
-            VStack(spacing: 2) {
-                ForEach(tasks) { task in
-                    TaskRowView(
-                        task: task,
-                        isSelected: selectedTaskId == task.id,
-                        onSelect: { onSelect(task) },
-                        onDelete: { onDelete(task) }
-                    )
+        List {
+            ForEach(tasks) { task in
+                TaskRowView(
+                    task: task,
+                    isSelected: selectedTaskId == task.id,
+                    onSelect: { onSelect(task) }
+                )
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        onDelete(task)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
                 }
+                .listRowBackground(Color.clear)
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .frame(maxHeight: 240)
     }
 }
@@ -95,65 +102,44 @@ private struct TaskRowView: View {
     let task: FocusTask
     let isSelected: Bool
     let onSelect: () -> Void
-    let onDelete: () -> Void
 
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 6) {
-            Button(action: onSelect) {
-                HStack(spacing: 10) {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 16))
-                        .foregroundStyle(isSelected ? .blue : .secondary)
-                        .symbolEffect(.bounce, value: isSelected)
+        Button(action: onSelect) {
+            HStack(spacing: 10) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 16))
+                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .symbolEffect(.bounce, value: isSelected)
 
-                    Text(task.title)
-                        .font(.subheadline)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
+                Text(task.title)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
 
-                    Spacer()
+                Spacer()
 
-                    Text("\(task.durationMinutes) min")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(backgroundColor)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(isSelected ? Color.blue.opacity(0.4) : Color.clear, lineWidth: 1)
-                )
+                Text("\(task.durationMinutes) min")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
             }
-            .buttonStyle(.plain)
-            .pointerCursor()
-
-            Button(action: onDelete) {
-                Image(systemName: "trash")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.red.opacity(0.8))
-                    .frame(width: 28, height: 28)
-                    .background(
-                        Circle()
-                            .fill(.red.opacity(isHovered ? 0.1 : 0))
-                    )
-            }
-            .buttonStyle(.plain)
-            .pointerCursor()
-            .opacity(isHovered ? 1 : 0)
-            .allowsHitTesting(isHovered)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(backgroundColor)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(isSelected ? Color.blue.opacity(0.4) : Color.clear, lineWidth: 1)
+            )
         }
-        .padding(.horizontal, 4)
+        .buttonStyle(.plain)
+        .pointerCursor()
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
-            }
+            isHovered = hovering
         }
     }
 
