@@ -20,10 +20,16 @@ struct TaskListView: View {
                 Button(action: onAddTask) {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
-                            .font(.caption2)
+                            .font(.caption)
                         Text("Add Task")
-                            .font(.caption2)
+                            .font(.caption)
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(.blue.opacity(0.12))
+                    )
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.blue)
@@ -94,7 +100,7 @@ private struct TaskRowView: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 6) {
             Button(action: onSelect) {
                 HStack(spacing: 10) {
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
@@ -128,17 +134,20 @@ private struct TaskRowView: View {
             .buttonStyle(.plain)
             .pointerCursor()
 
-            if isHovered {
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.caption)
-                        .foregroundStyle(.red.opacity(0.7))
-                        .frame(width: 20, height: 20)
-                }
-                .buttonStyle(.plain)
-                .pointerCursor()
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.red.opacity(0.8))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        Circle()
+                            .fill(.red.opacity(isHovered ? 0.1 : 0))
+                    )
             }
+            .buttonStyle(.plain)
+            .pointerCursor()
+            .opacity(isHovered ? 1 : 0)
+            .allowsHitTesting(isHovered)
         }
         .padding(.horizontal, 4)
         .onHover { hovering in
